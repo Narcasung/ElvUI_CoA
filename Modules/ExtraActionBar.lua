@@ -129,10 +129,7 @@ local function TryHook()
 
 	if container and button then
 		SetupMover(container, button)
-
-		if E.private.CoA.extraActionBar then
-			SkinButton(button)
-		end
+		SkinButton(button)
 	end
 
 	return container ~= nil and button ~= nil

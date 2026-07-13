@@ -78,10 +78,7 @@ local function TryHook()
 	if button then
 		DisableDrag(button)
 		SetupMover(button)
-
-		if E.private.CoA.instance then
-			SkinButton(button)
-		end
+		SkinButton(button)
 	end
 
 	return button ~= nil

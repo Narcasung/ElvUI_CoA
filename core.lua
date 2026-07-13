@@ -6,10 +6,7 @@ local AddOnName = ...
 local CoA = E:NewModule("CoA", "AceEvent-3.0", "AceTimer-3.0")
 E.CoA = CoA
 
-V.CoA = {
-	extraActionBar = true,
-	instance = true,
-}
+V.CoA = {}
 
 local function getOptions()
 	local options = {
@@ -18,34 +15,17 @@ local function getOptions()
 		childGroups = "tab",
 		name = string.format("|cff1784d1%s|r", "Conquest of Azeroth"),
 		args = {
-			skin = {
+			extraActionButton = {
 				order = 1,
 				type = "group",
-				name = "Skins",
-				get = function(info) return E.private.CoA[info[#info]] end,
-				set = function(info, value)
-					E.private.CoA[info[#info]] = value
-					E:StaticPopup_Show("PRIVATE_RL")
-				end,
-				args = {
-					header = {
-						order = 1,
-						type = "header",
-						name = "Skins",
-					},
-					extraActionBar = {
-						order = 2,
-						type = "toggle",
-						name = "Extra Action Bar",
-						desc = "Skin the ExtraActionBar frame.",
-					},
-					instance = {
-						order = 3,
-						type = "toggle",
-						name = "Instance",
-						desc = "Skin the LayerPickerFrame button.",
-					},
-				},
+				name = "Extra Action Button",
+				args = {},
+			},
+			instanceSwap = {
+				order = 2,
+				type = "group",
+				name = "Instance Swap",
+				args = {},
 			},
 		},
 	}
