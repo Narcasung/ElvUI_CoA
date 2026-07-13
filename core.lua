@@ -1,5 +1,6 @@
 local E, L, V, P, G = unpack(ElvUI)
 local EP = E.Libs.EP
+local ACH = LibStub("LibAceConfigHelper")
 
 local AddOnName = ...
 
@@ -10,8 +11,11 @@ E.CoA = CoA
 
 V.CoA = {}
 
-P.CoA = {
+G.CoA = {
 	extraActionButtonSize = 52,
+	instanceButtonFont = "PT Sans Narrow",
+	instanceButtonFontSize = 12,
+	instanceButtonFontOutline = "OUTLINE",
 }
 
 local function getOptions()
@@ -39,9 +43,9 @@ local function getOptions()
 						min = 30,
 						max = 100,
 						step = 1,
-						get = function() return E.db.CoA.extraActionButtonSize end,
+						get = function() return E.global.CoA.extraActionButtonSize end,
 						set = function(_, value)
-							E.db.CoA.extraActionButtonSize = value
+							E.global.CoA.extraActionButtonSize = value
 
 							if CoA.UpdateExtraActionButtonSize then
 								CoA:UpdateExtraActionButtonSize()
@@ -60,6 +64,40 @@ local function getOptions()
 						type = "header",
 						name = "Instance Swap",
 					},
+					font = ACH:SharedMediaFont("Font", nil, 2, nil,
+						function() return E.global.CoA.instanceButtonFont end,
+						function(_, value)
+							E.global.CoA.instanceButtonFont = value
+
+							if CoA.UpdateInstanceButtonFont then
+								CoA:UpdateInstanceButtonFont()
+							end
+						end),
+					fontSize = {
+						order = 3,
+						type = "range",
+						name = "Font Size",
+						min = 8,
+						max = 32,
+						step = 1,
+						get = function() return E.global.CoA.instanceButtonFontSize end,
+						set = function(_, value)
+							E.global.CoA.instanceButtonFontSize = value
+
+							if CoA.UpdateInstanceButtonFont then
+								CoA:UpdateInstanceButtonFont()
+							end
+						end,
+					},
+					fontOutline = ACH:FontFlags("Font Outline", nil, 4, nil,
+						function() return E.global.CoA.instanceButtonFontOutline end,
+						function(_, value)
+							E.global.CoA.instanceButtonFontOutline = value
+
+							if CoA.UpdateInstanceButtonFont then
+								CoA:UpdateInstanceButtonFont()
+							end
+						end),
 				},
 			},
 		},

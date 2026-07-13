@@ -23,7 +23,7 @@ end
 local function UpdateSize(button)
 	button = button or _G[BUTTON_NAME]
 	if button then
-		local size = E.db.CoA.extraActionButtonSize or 52
+		local size = E.global.CoA.extraActionButtonSize or 52
 		button:SetSize(size, size)
 	end
 end

@@ -1,7 +1,27 @@
 local E, L, V, P, G = unpack(ElvUI)
+local LSM = E.Libs.LSM
 local CoA = E:GetModule("CoA")
 
 local BUTTON_NAME = "LayerPickerFrame"
+local MIN_WIDTH, MIN_HEIGHT = 66, 14
+local PAD_X, PAD_Y = 10, 10
+
+local function UpdateFont(button)
+	button = button or _G[BUTTON_NAME]
+	local text = button and _G[button:GetName().."Text"]
+	if not text then return end
+
+	text:FontTemplate(LSM:Fetch("font", E.global.CoA.instanceButtonFont), E.global.CoA.instanceButtonFontSize, E.global.CoA.instanceButtonFontOutline)
+
+	button:SetSize(
+		math.max(MIN_WIDTH, text:GetStringWidth() + PAD_X),
+		math.max(MIN_HEIGHT, text:GetStringHeight() + PAD_Y)
+	)
+end
+
+function CoA:UpdateInstanceButtonFont()
+	UpdateFont()
+end
 
 do
 	local orig_AddButton = UIDropDownMenu_AddButton
@@ -60,16 +80,11 @@ local function SkinButton(button)
 	if button.CoASkinned then return end
 	button.CoASkinned = true
 
-	local name = button:GetName()
-	local text = _G[name.."Text"]
-
 	button:StripTextures(true)
 	button:CreateBackdrop("Default")
 	button:StyleButton()
 
-	if text then
-		text:FontTemplate()
-	end
+	UpdateFont(button)
 end
 
 local function TryHook()
