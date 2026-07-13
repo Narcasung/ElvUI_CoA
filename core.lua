@@ -3,10 +3,16 @@ local EP = E.Libs.EP
 
 local AddOnName = ...
 
+BINDING_HEADER_COA = "Conquest of Azeroth"
+
 local CoA = E:NewModule("CoA", "AceEvent-3.0", "AceTimer-3.0")
 E.CoA = CoA
 
 V.CoA = {}
+
+P.CoA = {
+	extraActionButtonSize = 52,
+}
 
 local function getOptions()
 	local options = {
@@ -19,13 +25,42 @@ local function getOptions()
 				order = 1,
 				type = "group",
 				name = "Extra Action Button",
-				args = {},
+				args = {
+					header = {
+						order = 1,
+						type = "header",
+						name = "Extra Action Button",
+					},
+					size = {
+						order = 2,
+						type = "range",
+						name = "Size",
+						desc = "Adjust the width/height of the Extra Action Button, in pixels.",
+						min = 30,
+						max = 100,
+						step = 1,
+						get = function() return E.db.CoA.extraActionButtonSize end,
+						set = function(_, value)
+							E.db.CoA.extraActionButtonSize = value
+
+							if CoA.UpdateExtraActionButtonSize then
+								CoA:UpdateExtraActionButtonSize()
+							end
+						end,
+					},
+				},
 			},
 			instanceSwap = {
 				order = 2,
 				type = "group",
 				name = "Instance Swap",
-				args = {},
+				args = {
+					header = {
+						order = 1,
+						type = "header",
+						name = "Instance Swap",
+					},
+				},
 			},
 		},
 	}

@@ -6,6 +6,7 @@
 ## RequiredDeps: ElvUI
 ## X-IconTexture: Interface\AddOns\ElvUI\Media\ElvUILogo
 
+Bindings.xml
 core.lua
 Modules\ExtraActionBar.lua
 Modules\LayerPicker.lua

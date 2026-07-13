@@ -1,8 +1,12 @@
 local E, L, V, P, G = unpack(ElvUI)
+local LSM = E.Libs.LSM
 local CoA = E:GetModule("CoA")
 
 local CONTAINER_NAME = "ExtraActionBar"
 local BUTTON_NAME = "ExtraActionBarPoolFrameExtraActionButtonTemplate1"
+local BINDING_ACTION = "CLICK "..BUTTON_NAME..":LeftButton"
+
+_G["BINDING_NAME_"..BINDING_ACTION] = "Extra Action Button"
 
 local function SkinGlow(button, name)
 	local glow = _G[name.."SpellActivationAlert"]
@@ -16,9 +20,48 @@ local function SkinGlow(button, name)
 	end
 end
 
-local function SkinButton(button)
+local function UpdateSize(button)
+	button = button or _G[BUTTON_NAME]
+	if button then
+		local size = E.db.CoA.extraActionButtonSize or 52
+		button:SetSize(size, size)
+	end
+end
+
+function CoA:UpdateExtraActionButtonSize()
+	UpdateSize()
+end
+
+local function UpdateHotkeyText(button)
+	button = button or _G[BUTTON_NAME]
+	local hotkey = button and _G[button:GetName().."HotKey"]
+	if not hotkey then return end
+
+	local key = GetBindingKey(BINDING_ACTION)
+	if key then
+		hotkey:SetText(GetBindingText(key, "KEY_"))
+		hotkey:Show()
+	else
+		hotkey:SetText("")
+		hotkey:Hide()
+	end
+end
+
+local function RecenterAnchor(button, container)
+	local x, y = button:GetCenter()
+	local cx, cy = container:GetCenter()
+	if not (x and y and cx and cy) then return end
+
+	button:ClearAllPoints()
+	button:SetPoint("CENTER", container, "CENTER", x - cx, y - cy)
+end
+
+local function SkinButton(button, container)
 	if button.CoASkinned then return end
 	button.CoASkinned = true
+
+	RecenterAnchor(button, container)
+	UpdateSize(button)
 
 	local name = button:GetName()
 	local icon = _G[name.."Icon"]
@@ -59,12 +102,18 @@ local function SkinButton(button)
 		rim:SetFrameLevel(button.backdrop:GetFrameLevel() + 10)
 		rim:SetBackdrop({edgeFile = E.media.blankTex, edgeSize = 6})
 		rim:SetBackdropBorderColor(unpack(E.media.bordercolor))
+
+		button:SetFrameLevel(rim:GetFrameLevel() + 1)
 	end
 
 	if hotkey then
 		hotkey:ClearAllPoints()
-		hotkey:Point("TOPRIGHT", 0, 0)
-		hotkey:FontTemplate()
+		hotkey:Point("TOPRIGHT", -8, -8)
+		hotkey:FontTemplate(LSM:Fetch("font", E.db.actionbar.font), E.db.actionbar.fontSize, E.db.actionbar.fontOutline)
+		hotkey:SetTextColor(1, 1, 1)
+
+		UpdateHotkeyText(button)
+		CoA:RegisterEvent("UPDATE_BINDINGS", function() UpdateHotkeyText(button) end)
 	end
 
 	if macroText then
@@ -129,7 +178,7 @@ local function TryHook()
 
 	if container and button then
 		SetupMover(container, button)
-		SkinButton(button)
+		SkinButton(button, container)
 	end
 
 	return container ~= nil and button ~= nil
