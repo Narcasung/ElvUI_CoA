@@ -20,11 +20,34 @@ local function SkinGlow(button, name)
 	end
 end
 
+local RIM_EDGE_RATIO = 6 / 52 -- 6px confirmed empirically at the native 52px size to fully hide the icon's baked-in vanilla border
+
+local function UpdateRimEdge(button, size)
+	local rim = button and button.CoARim
+	if not rim then return end
+
+	rim:SetBackdrop({edgeFile = E.media.blankTex, edgeSize = size * RIM_EDGE_RATIO})
+	rim:SetBackdropBorderColor(unpack(E.media.bordercolor))
+end
+
+local HOTKEY_MARGIN = 3
+
+local function UpdateHotkeyPosition(button, size)
+	local hotkey = button and _G[button:GetName().."HotKey"]
+	if not hotkey then return end
+
+	local inset = -(size * RIM_EDGE_RATIO + HOTKEY_MARGIN)
+	hotkey:ClearAllPoints()
+	hotkey:Point("TOPRIGHT", inset, inset)
+end
+
 local function UpdateSize(button)
 	button = button or _G[BUTTON_NAME]
 	if button then
 		local size = E.global.CoA.extraActionButtonSize or 52
 		button:SetSize(size, size)
+		UpdateRimEdge(button, size)
+		UpdateHotkeyPosition(button, size)
 	end
 end
 
@@ -100,15 +123,13 @@ local function SkinButton(button, container)
 		local rim = CreateFrame("Frame", nil, button.backdrop)
 		rim:SetAllPoints(icon)
 		rim:SetFrameLevel(button.backdrop:GetFrameLevel() + 10)
-		rim:SetBackdrop({edgeFile = E.media.blankTex, edgeSize = 6})
-		rim:SetBackdropBorderColor(unpack(E.media.bordercolor))
+		button.CoARim = rim
+		UpdateRimEdge(button, E.global.CoA.extraActionButtonSize or 52)
 
 		button:SetFrameLevel(rim:GetFrameLevel() + 1)
 	end
 
 	if hotkey then
-		hotkey:ClearAllPoints()
-		hotkey:Point("TOPRIGHT", -8, -8)
 		hotkey:FontTemplate(LSM:Fetch("font", E.db.actionbar.font), E.db.actionbar.fontSize, E.db.actionbar.fontOutline)
 		hotkey:SetTextColor(1, 1, 1)
 
