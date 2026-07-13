@@ -1,0 +1,10 @@
+## Interface: 30300
+## Author: Narcasung
+## Version: 1.0
+## Title: |cff1784d1E|r|cffe5e3e3lvUI|r |cff1784d1C|r|cffe5e3e3oA|r
+## Notes: Hides and skins custom CoA-server frames for ElvUI.
+## RequiredDeps: ElvUI
+## X-IconTexture: Interface\AddOns\ElvUI\Media\ElvUILogo
+
+core.lua
+Modules\ExtraActionBar.lua
