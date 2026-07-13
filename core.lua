@@ -8,6 +8,7 @@ E.CoA = CoA
 
 V.CoA = {
 	extraActionBar = true,
+	instance = true,
 }
 
 local function getOptions()
@@ -38,6 +39,12 @@ local function getOptions()
 						name = "Extra Action Bar",
 						desc = "Skin the ExtraActionBar frame.",
 					},
+					instance = {
+						order = 3,
+						type = "toggle",
+						name = "Instance",
+						desc = "Skin the LayerPickerFrame button.",
+					},
 				},
 			},
 		},
@@ -51,6 +58,10 @@ function CoA:Initialize()
 
 	if self.InitializeExtraActionBar then
 		self:InitializeExtraActionBar()
+	end
+
+	if self.InitializeLayerPicker then
+		self:InitializeLayerPicker()
 	end
 end
 
