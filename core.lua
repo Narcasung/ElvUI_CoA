@@ -28,8 +28,6 @@ local defaults = {
 	},
 }
 
-CoA.db = AceDB:New("ElvUI_CoADB", defaults, true)
-
 function CoA:RefreshConfig()
 	if self.UpdateExtraActionButtonSize then self:UpdateExtraActionButtonSize() end
 	if self.UpdateInstanceButtonFont then self:UpdateInstanceButtonFont() end
@@ -37,9 +35,16 @@ function CoA:RefreshConfig()
 	if self.UpdateClassResourceVisibility then self:UpdateClassResourceVisibility() end
 end
 
-CoA.db.RegisterCallback(CoA, "OnProfileChanged", "RefreshConfig")
-CoA.db.RegisterCallback(CoA, "OnProfileCopied", "RefreshConfig")
-CoA.db.RegisterCallback(CoA, "OnProfileReset", "RefreshConfig")
+CoA:RegisterEvent("ADDON_LOADED", function(_, addon)
+	if addon ~= AddOnName then return end
+	CoA:UnregisterEvent("ADDON_LOADED")
+
+	CoA.db = AceDB:New("ElvUI_CoADB", defaults, true)
+
+	CoA.db.RegisterCallback(CoA, "OnProfileChanged", "RefreshConfig")
+	CoA.db.RegisterCallback(CoA, "OnProfileCopied", "RefreshConfig")
+	CoA.db.RegisterCallback(CoA, "OnProfileReset", "RefreshConfig")
+end)
 
 local function getOptions()
 	local profiles = AceDBOptions:GetOptionsTable(CoA.db)
