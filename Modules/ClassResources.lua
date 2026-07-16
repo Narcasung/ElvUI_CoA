@@ -44,6 +44,52 @@ do
 	end
 end
 
+-- Replace the native "Drag to move" tooltip hint with one that reflects how
+-- these frames are actually repositioned now (native drag is disabled).
+-- Scoped by IsMouseOver rather than GameTooltip:GetOwner(), since the owner
+-- passed to SetOwner may be a child region rather than the tracked frame
+-- itself. Matched loosely (case-insensitive "drag" + "move") since the exact
+-- wording isn't confirmed. Hooked on both OnShow and OnUpdate since some
+-- tooltips keep refreshing their lines while visible.
+local tooltipFrames = {}
+local tooltipHooked = false
+
+local function ReplaceTooltipLines()
+	local hovering = false
+	for frame in pairs(tooltipFrames) do
+		if frame:IsMouseOver() then
+			hovering = true
+			break
+		end
+	end
+	if not hovering then return end
+
+	for i = 1, GameTooltip:NumLines() do
+		local line = _G["GameTooltipTextLeft"..i]
+		local text = line and line:GetText()
+		if text then
+			-- Some lines combine the drag hint with other text (e.g. a
+			-- trailing "Right-click for options"), so replace just the
+			-- matched span instead of the whole line.
+			local replaced, count = text:gsub("[Dd]rag.-[Mm]ove", "Toggle ElvUI's anchors to move")
+			if count > 0 then
+				line:SetText(replaced)
+			end
+		end
+	end
+end
+
+local function FixTooltip(frame)
+	if tooltipFrames[frame] then return end
+	tooltipFrames[frame] = true
+
+	if not tooltipHooked then
+		tooltipHooked = true
+		GameTooltip:HookScript("OnShow", ReplaceTooltipLines)
+		GameTooltip:HookScript("OnUpdate", ReplaceTooltipLines)
+	end
+end
+
 -- A single nil-out isn't enough: the frame's own update logic re-attaches
 -- OnDragStart/OnDragStop (and re-registers drag buttons) on refresh, and
 -- native dragging ends with the engine calling SetPoint directly on the
@@ -159,6 +205,13 @@ local function SetupMover(frame, name, moverText)
 	return true
 end
 
+-- The server never Show()s a frame the current class doesn't use, so its
+-- data (powerType, maxValue, ...) is never populated. Forcing Show() on it
+-- exposes that uninitialized state and renders as a garbage white bar
+-- texture (same issue and same fix as HideCoAUI). Only force-show a frame
+-- we've already seen the game display naturally at least once.
+local seenNaturalShow = {}
+
 -- CoAForceHidden distinguishes frames we hid ourselves (via the options
 -- checkbox) from frames the game itself decided to hide, so unchecking the
 -- box only restores frames we were suppressing.
@@ -166,7 +219,7 @@ local function ApplyVisibility(frame, hideKey)
 	if CoA.db.profile[hideKey] then
 		frame.CoAForceHidden = true
 		frame:Hide()
-	elseif frame.CoAForceHidden then
+	elseif frame.CoAForceHidden and seenNaturalShow[frame] then
 		frame.CoAForceHidden = false
 		frame:Show()
 	end
@@ -177,6 +230,7 @@ local function SetupVisibility(frame, hideKey)
 	frame.CoAVisibilityHooked = true
 
 	frame:HookScript("OnShow", function(self)
+		seenNaturalShow[self] = true
 		ApplyVisibility(self, hideKey)
 	end)
 
@@ -204,6 +258,7 @@ local function TryHookAll()
 			if frame then
 				DisableDrag(frame)
 				SetupVisibility(frame, def.hideKey)
+				FixTooltip(frame)
 
 				if SetupMover(frame, def.name, def.moverText) then
 					hooked[def.name] = true

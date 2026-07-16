@@ -69,7 +69,8 @@ local function getOptions()
 					hideResourceSegmentBar = {
 						order = 3,
 						type = "toggle",
-						name = "Hide Resource Segment Bar",
+						name = "Hide CoAResourceSegmentBar",
+						width = "full",
 						get = function() return CoA.db.profile.hideResourceSegmentBar end,
 						set = function(_, value)
 							CoA.db.profile.hideResourceSegmentBar = value
@@ -82,7 +83,8 @@ local function getOptions()
 					hideResourceOrb = {
 						order = 4,
 						type = "toggle",
-						name = "Hide Resource Orb",
+						name = "Hide CoAResourceOrb",
+						width = "full",
 						get = function() return CoA.db.profile.hideResourceOrb end,
 						set = function(_, value)
 							CoA.db.profile.hideResourceOrb = value
@@ -95,7 +97,8 @@ local function getOptions()
 					hideResourceBar = {
 						order = 5,
 						type = "toggle",
-						name = "Hide Resource Bar",
+						name = "Hide CoAResourceBar",
+						width = "full",
 						get = function() return CoA.db.profile.hideResourceBar end,
 						set = function(_, value)
 							CoA.db.profile.hideResourceBar = value
@@ -108,10 +111,41 @@ local function getOptions()
 					hideMultiCastActionBar = {
 						order = 6,
 						type = "toggle",
-						name = "Hide Multi Cast Action Bar",
+						name = "Hide CoAMultiCastActionBarFrame",
+						width = "full",
 						get = function() return CoA.db.profile.hideMultiCastActionBar end,
 						set = function(_, value)
 							CoA.db.profile.hideMultiCastActionBar = value
+
+							if CoA.UpdateClassResourceVisibility then
+								CoA:UpdateClassResourceVisibility()
+							end
+						end,
+					},
+					hideAll = {
+						order = 7,
+						type = "execute",
+						name = "Hide All",
+						func = function()
+							CoA.db.profile.hideResourceSegmentBar = true
+							CoA.db.profile.hideResourceOrb = true
+							CoA.db.profile.hideResourceBar = true
+							CoA.db.profile.hideMultiCastActionBar = true
+
+							if CoA.UpdateClassResourceVisibility then
+								CoA:UpdateClassResourceVisibility()
+							end
+						end,
+					},
+					showAll = {
+						order = 8,
+						type = "execute",
+						name = "Show All",
+						func = function()
+							CoA.db.profile.hideResourceSegmentBar = false
+							CoA.db.profile.hideResourceOrb = false
+							CoA.db.profile.hideResourceBar = false
+							CoA.db.profile.hideMultiCastActionBar = false
 
 							if CoA.UpdateClassResourceVisibility then
 								CoA:UpdateClassResourceVisibility()
