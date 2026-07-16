@@ -5,8 +5,12 @@
 ## Notes: Hides and skins custom CoA-server frames for ElvUI.
 ## RequiredDeps: ElvUI
 ## X-IconTexture: Interface\AddOns\ElvUI\Media\ElvUILogo
+## SavedVariables: ElvUI_CoADB
 
 Bindings.xml
+Libraries\AceDBOptions-3.0.lua
 core.lua
 Modules\ExtraActionBar.lua
 Modules\LayerPicker.lua
+Modules\DispelHighlight.lua
+Modules\ClassResources.lua

@@ -11,7 +11,7 @@ local function UpdateFont(button)
 	local text = button and _G[button:GetName().."Text"]
 	if not text then return end
 
-	text:FontTemplate(LSM:Fetch("font", E.global.CoA.instanceButtonFont), E.global.CoA.instanceButtonFontSize, E.global.CoA.instanceButtonFontOutline)
+	text:FontTemplate(LSM:Fetch("font", CoA.db.profile.instanceButtonFont), CoA.db.profile.instanceButtonFontSize, CoA.db.profile.instanceButtonFontOutline)
 
 	button:SetSize(
 		math.max(MIN_WIDTH, text:GetStringWidth() + PAD_X),
@@ -34,22 +34,44 @@ do
 	end
 end
 
+-- A single nil-out isn't enough: native dragging ends with the engine
+-- calling SetPoint directly on the frame, severing the live anchor to our
+-- mover holder. So we don't just clear drag once, we permanently intercept
+-- any future attempt to turn it back on. The CoAClearing* guards stop our
+-- own corrective calls from re-triggering these same hooks.
 local function DisableDrag(button)
 	if button.CoADragDisabled then return end
 	button.CoADragDisabled = true
 
 	button:SetScript("OnDragStart", nil)
 	button:SetScript("OnDragStop", nil)
+	button:RegisterForDrag()
+
+	hooksecurefunc(button, "SetScript", function(self, script, handler)
+		if handler and (script == "OnDragStart" or script == "OnDragStop") and not self.CoAClearingDragScript then
+			self.CoAClearingDragScript = true
+			self:SetScript(script, nil)
+			self.CoAClearingDragScript = false
+		end
+	end)
+
+	hooksecurefunc(button, "RegisterForDrag", function(self, ...)
+		if select("#", ...) > 0 and not self.CoAClearingDrag then
+			self.CoAClearingDrag = true
+			self:RegisterForDrag()
+			self.CoAClearingDrag = false
+		end
+	end)
 end
 
 local function SetupMover(button)
-	if CoA.layerPickerMoverCreated then return end
+	if CoA.layerPickerMoverCreated then return true end
 
 	local width, height = button:GetSize()
-	if width == 0 or height == 0 then return end
+	if width == 0 or height == 0 then return false end
 
 	local left, bottom = button:GetLeft(), button:GetBottom()
-	if not left or not bottom then return end
+	if not left or not bottom then return false end
 
 	CoA.layerPickerMoverCreated = true
 
@@ -74,6 +96,8 @@ local function SetupMover(button)
 	else
 		Anchor()
 	end
+
+	return true
 end
 
 local function SkinButton(button)
@@ -92,11 +116,11 @@ local function TryHook()
 
 	if button then
 		DisableDrag(button)
-		SetupMover(button)
 		SkinButton(button)
+		return SetupMover(button)
 	end
 
-	return button ~= nil
+	return false
 end
 
 function CoA:InitializeLayerPicker()

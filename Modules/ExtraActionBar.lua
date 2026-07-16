@@ -44,7 +44,7 @@ end
 local function UpdateSize(button)
 	button = button or _G[BUTTON_NAME]
 	if button then
-		local size = E.global.CoA.extraActionButtonSize or 52
+		local size = CoA.db.profile.extraActionButtonSize or 52
 		button:SetSize(size, size)
 		UpdateRimEdge(button, size)
 		UpdateHotkeyPosition(button, size)
@@ -124,7 +124,7 @@ local function SkinButton(button, container)
 		rim:SetAllPoints(icon)
 		rim:SetFrameLevel(button.backdrop:GetFrameLevel() + 10)
 		button.CoARim = rim
-		UpdateRimEdge(button, E.global.CoA.extraActionButtonSize or 52)
+		UpdateRimEdge(button, CoA.db.profile.extraActionButtonSize or 52)
 
 		button:SetFrameLevel(rim:GetFrameLevel() + 1)
 	end
@@ -158,13 +158,13 @@ local function SkinButton(button, container)
 end
 
 local function SetupMover(container, button)
-	if CoA.extraActionBarMoverCreated then return end
+	if CoA.extraActionBarMoverCreated then return true end
 
 	local width, height = button:GetSize()
-	if width == 0 or height == 0 then return end
+	if width == 0 or height == 0 then return false end
 
 	local left, bottom = button:GetLeft(), button:GetBottom()
-	if not left or not bottom then return end
+	if not left or not bottom then return false end
 
 	CoA.extraActionBarMoverCreated = true
 
@@ -191,6 +191,8 @@ local function SetupMover(container, button)
 	else
 		Anchor()
 	end
+
+	return true
 end
 
 local function TryHook()
@@ -198,11 +200,11 @@ local function TryHook()
 	local button = _G[BUTTON_NAME]
 
 	if container and button then
-		SetupMover(container, button)
 		SkinButton(button, container)
+		return SetupMover(container, button)
 	end
 
-	return container ~= nil and button ~= nil
+	return false
 end
 
 function CoA:InitializeExtraActionBar()
