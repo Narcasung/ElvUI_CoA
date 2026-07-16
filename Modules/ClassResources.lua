@@ -8,6 +8,42 @@ local FRAMES = {
 	{name = "CoAMultiCastActionBarFrame", moverText = "Multi Cast Action Bar", hideKey = "hideMultiCastActionBar"},
 }
 
+local FRAME_NAMES = {}
+for _, def in ipairs(FRAMES) do
+	FRAME_NAMES[def.name] = true
+end
+
+-- These frames' native right-click dropdown offers a "Lock/Unlock Frame"
+-- entry that's meaningless now that dragging is permanently disabled (see
+-- DisableDrag below), so strip it. Matched loosely (case-insensitive,
+-- requiring both words) since the exact wording isn't confirmed, and scoped
+-- to only our tracked frames' dropdowns so it can't affect unrelated menus.
+do
+	local function IsTrackedDropdown(menu)
+		if not menu then return false end
+
+		local name = menu.GetName and menu:GetName()
+		local ownerName = name and name:match("^(.-)DropDown$")
+		if ownerName and FRAME_NAMES[ownerName] then return true end
+
+		local parent = menu.GetParent and menu:GetParent()
+		local parentName = parent and parent.GetName and parent:GetName()
+		return parentName and FRAME_NAMES[parentName] or false
+	end
+
+	local orig_AddButton = UIDropDownMenu_AddButton
+	UIDropDownMenu_AddButton = function(info, level)
+		if info and info.text and IsTrackedDropdown(UIDROPDOWNMENU_INIT_MENU) then
+			local text = info.text:lower()
+			if text:find("lock") and text:find("frame") then
+				return
+			end
+		end
+
+		return orig_AddButton(info, level)
+	end
+end
+
 -- A single nil-out isn't enough: the frame's own update logic re-attaches
 -- OnDragStart/OnDragStop (and re-registers drag buttons) on refresh, and
 -- native dragging ends with the engine calling SetPoint directly on the
