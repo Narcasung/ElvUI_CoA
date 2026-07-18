@@ -11,7 +11,7 @@ ElvUI plugin that hides and skins the custom CoA (3.3.5) frames not covered by s
 
 ## Installation
 
-Download the repo as .zip, extract in Interface\Addons, remove the -master from the folder name.
+Download the repo as .zip, extract in `Interface\AddOns`, remove `-master` from the folder name.
 
 ## Requirements
 
