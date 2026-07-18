@@ -79,7 +79,7 @@ local function SetupMover(button)
 	holder:Size(width, height)
 	holder:Point("BOTTOMLEFT", E.UIParent, "BOTTOMLEFT", left, bottom)
 
-	E:CreateMover(holder, "CoA_LayerPickerMover", "Instance", nil, nil, nil, nil, nil, "CoA,skin,instance")
+	E:CreateMover(holder, "CoA_LayerPickerMover", "Instance", nil, nil, nil, "ALL,COA", nil, "CoA,skin,instance")
 	holder:SetAllPoints(_G["CoA_LayerPickerMover"])
 	_G["CoA_LayerPickerMover"]:SetFrameStrata("FULLSCREEN")
 

@@ -194,7 +194,7 @@ local function SetupMover(frame, name, moverText)
 	holder:Size(width, height)
 	holder:Point("BOTTOMLEFT", E.UIParent, "BOTTOMLEFT", left, bottom)
 
-	E:CreateMover(holder, "CoA_"..name.."Mover", moverText, nil, nil, nil, nil, nil, "CoA,skin,classResources")
+	E:CreateMover(holder, "CoA_"..name.."Mover", moverText, nil, nil, nil, "ALL,COA", nil, "CoA,skin,classResources")
 	holder:SetAllPoints(_G["CoA_"..name.."Mover"])
 
 	QueueAnchor(function()

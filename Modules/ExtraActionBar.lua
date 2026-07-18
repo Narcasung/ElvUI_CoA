@@ -175,7 +175,7 @@ local function SetupMover(container, button)
 	holder:Size(width, height)
 	holder:Point("BOTTOMLEFT", E.UIParent, "BOTTOMLEFT", left, bottom)
 
-	E:CreateMover(holder, "CoA_ExtraActionBarMover", "Extra Action Bar", nil, nil, nil, "ALL,ACTIONBARS", nil, "CoA,skin,extraActionBar")
+	E:CreateMover(holder, "CoA_ExtraActionBarMover", "Extra Action Bar", nil, nil, nil, "ALL,COA", nil, "CoA,skin,extraActionBar")
 	holder:SetAllPoints(_G["CoA_ExtraActionBarMover"])
 
 	local function Anchor()

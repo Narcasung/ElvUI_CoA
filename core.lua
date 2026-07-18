@@ -335,7 +335,18 @@ local function getOptions()
 	E.Options.args.CoA = options
 end
 
+local function RegisterMoverCategory()
+	for _, layout in ipairs(E.ConfigModeLayouts) do
+		if layout == "COA" then return end
+	end
+
+	tinsert(E.ConfigModeLayouts, "COA")
+	E.ConfigModeLocalizedStrings.COA = "CoA"
+end
+
 function CoA:Initialize()
+	RegisterMoverCategory()
+
 	EP:RegisterPlugin(AddOnName, getOptions)
 
 	if self.InitializeExtraActionBar then
