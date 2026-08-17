@@ -163,10 +163,17 @@ function CoA:InitializeVanityFrame()
 	if not E.private.skins.blizzard.enable then return end
 	if TryHook() then return end
 
-	self.vanityFrameTimer = self:ScheduleRepeatingTimer(function()
+	-- Frame is created on-demand by its owning addon, the instant the player
+	-- first opens it -- a poll can't catch that before native art gets a
+	-- paint. ADDON_LOADED fires (synchronously, before control returns to
+	-- whatever code calls :Show()) the moment that addon finishes loading, so
+	-- skinning here lands before the first-ever :Show(). Confirmed in-game on
+	-- the talent frame's identical pattern; see TalentFrame.lua.
+	local loader = CreateFrame("Frame")
+	loader:RegisterEvent("ADDON_LOADED")
+	loader:SetScript("OnEvent", function(self)
 		if TryHook() then
-			self:CancelTimer(self.vanityFrameTimer)
-			self.vanityFrameTimer = nil
+			self:UnregisterEvent("ADDON_LOADED")
 		end
-	end, 0.5)
+	end)
 end

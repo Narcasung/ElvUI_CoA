@@ -851,7 +851,12 @@ local function SkinFrame(frame)
 
 	SkinCloseButton(frame)
 	SkinBottomBar()
-	CropBackground()
+	-- Not CropBackground() here: this runs pre-Show now (see InitializeTalentFrame),
+	-- before Blizzard's own code sets the background texture's real art-tile
+	-- coords -- it's still XML-template default (full 0..1) at this point. Crop
+	-- caches "original" coords on first call and never recaptures, so cropping
+	-- here would permanently bake in the wrong baseline. OnShow (below) is the
+	-- only place this is safe to run.
 	SkinChildren(frame, 1)
 	SkinTabs()
 	SkinSpecChoices()
@@ -870,10 +875,17 @@ function CoA:InitializeTalentFrame()
 	if not E.private.skins.blizzard.enable then return end
 	if TryHook() then return end
 
-	self.talentFrameTimer = self:ScheduleRepeatingTimer(function()
+	-- Frame is created on-demand by its owning addon (e.g. Ascension_CoATalents),
+	-- the instant the player first opens it -- a poll can't catch that before the
+	-- native art gets a paint. ADDON_LOADED fires (synchronously, before control
+	-- returns to whatever code calls :Show()) the moment that addon finishes
+	-- loading, so skinning here lands before the first-ever :Show(), killing the
+	-- one-frame flicker a poll-based catch can't avoid. Confirmed in-game.
+	local loader = CreateFrame("Frame")
+	loader:RegisterEvent("ADDON_LOADED")
+	loader:SetScript("OnEvent", function(self)
 		if TryHook() then
-			self:CancelTimer(self.talentFrameTimer)
-			self.talentFrameTimer = nil
+			self:UnregisterEvent("ADDON_LOADED")
 		end
-	end, 0.5)
+	end)
 end
