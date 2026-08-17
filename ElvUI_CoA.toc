@@ -14,3 +14,4 @@ Modules\ExtraActionBar.lua
 Modules\LayerPicker.lua
 Modules\DispelHighlight.lua
 Modules\ClassResources.lua
+Modules\TalentFrame.lua

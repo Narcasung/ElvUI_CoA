@@ -364,6 +364,10 @@ function CoA:Initialize()
 	if self.InitializeClassResources then
 		self:InitializeClassResources()
 	end
+
+	if self.InitializeTalentFrame then
+		self:InitializeTalentFrame()
+	end
 end
 
 local function InitializeCallback()
