@@ -23,10 +23,15 @@ function CoA:UpdateInstanceButtonFont()
 	UpdateFont()
 end
 
+-- Hooked at file scope, so unlike the rest of the skin it stays live even when
+-- the skin is off -- check the toggle here instead. Reset Position only makes
+-- sense while the frame is where the server put it; once we've handed it to a
+-- mover the entry does nothing useful.
 do
 	local orig_AddButton = UIDropDownMenu_AddButton
 	UIDropDownMenu_AddButton = function(info, level)
-		if info and info.text == "Reset Position" and UIDROPDOWNMENU_INIT_MENU == LayerPickerFrameDropDown then
+		if CoA.db and CoA.db.profile.skins.instanceSwap
+		and info and info.text == "Reset Position" and UIDROPDOWNMENU_INIT_MENU == LayerPickerFrameDropDown then
 			return
 		end
 

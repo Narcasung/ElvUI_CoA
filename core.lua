@@ -8,11 +8,17 @@ local AddOnName = ...
 
 BINDING_HEADER_COA = "Conquest of Azeroth"
 
+-- TODO: hook up server restart frame (RestartTimerFrame)
+
 local CoA = E:NewModule("CoA", "AceEvent-3.0", "AceTimer-3.0")
 E.CoA = CoA
 
 local defaults = {
 	profile = {
+		skins = {
+			extraActionButton = true,
+			instanceSwap = true,
+		},
 		extraActionButtonSize = 52,
 		instanceButtonFont = "PT Sans Narrow",
 		instanceButtonFontSize = 12,
@@ -70,8 +76,139 @@ local function getOptions()
 		childGroups = "tab",
 		name = string.format("|cff1784d1%s|r", "Conquest of Azeroth"),
 		args = {
-			classResources = {
+			-- Frame skins live under their own tab, laid out as a vertical tree
+			-- rather than more horizontal tabs: one entry per skinned frame, and
+			-- there are a lot more of those coming.
+			skins = {
 				order = 1,
+				type = "group",
+				childGroups = "tree",
+				name = "Skins",
+				args = {
+					extraActionButton = {
+						order = 1,
+						type = "group",
+						name = "Extra Action Button",
+						args = {
+							header = {
+								order = 1,
+								type = "header",
+								name = "Extra Action Button",
+							},
+							-- Skinning is one-way: the native art is stripped and
+							-- replaced in place, so turning a skin off can only take
+							-- effect on the next load. Hence the reload prompt.
+							enable = {
+								order = 2,
+								type = "toggle",
+								name = "Enable",
+								desc = "Skin the Extra Action Button. Requires a UI reload.",
+								get = function() return CoA.db.profile.skins.extraActionButton end,
+								set = function(_, value)
+									CoA.db.profile.skins.extraActionButton = value
+									E:StaticPopup_Show("CONFIG_RL")
+								end,
+							},
+							desc = {
+								order = 3,
+								type = "description",
+								name = "You can move this element with Toggle Anchors.\n",
+							},
+							size = {
+								order = 4,
+								disabled = function() return not CoA.db.profile.skins.extraActionButton end,
+								type = "range",
+								name = "Size",
+								desc = "Adjust the width/height of the Extra Action Button, in pixels.",
+								min = 30,
+								max = 100,
+								step = 1,
+								get = function() return CoA.db.profile.extraActionButtonSize end,
+								set = function(_, value)
+									CoA.db.profile.extraActionButtonSize = value
+
+									if CoA.UpdateExtraActionButtonSize then
+										CoA:UpdateExtraActionButtonSize()
+									end
+								end,
+							},
+						},
+					},
+					instanceSwap = {
+						order = 2,
+						type = "group",
+						name = "Instance Swap",
+						args = {
+							header = {
+								order = 1,
+								type = "header",
+								name = "Instance Swap",
+							},
+							enable = {
+								order = 2,
+								type = "toggle",
+								name = "Enable",
+								desc = "Skin the Instance Swap button. Requires a UI reload.",
+								get = function() return CoA.db.profile.skins.instanceSwap end,
+								set = function(_, value)
+									CoA.db.profile.skins.instanceSwap = value
+									E:StaticPopup_Show("CONFIG_RL")
+								end,
+							},
+							desc = {
+								order = 3,
+								type = "description",
+								name = "You can move this element with Toggle Anchors.\n",
+							},
+							instanceFont = {
+								order = 4,
+								disabled = function() return not CoA.db.profile.skins.instanceSwap end,
+								type = "group",
+								inline = true,
+								name = "Instance Font",
+								args = {
+									font = ACH:SharedMediaFont("Font", nil, 1, nil,
+										function() return CoA.db.profile.instanceButtonFont end,
+										function(_, value)
+											CoA.db.profile.instanceButtonFont = value
+
+											if CoA.UpdateInstanceButtonFont then
+												CoA:UpdateInstanceButtonFont()
+											end
+										end),
+									fontSize = {
+										order = 2,
+										type = "range",
+										name = "Font Size",
+										min = 8,
+										max = 32,
+										step = 1,
+										get = function() return CoA.db.profile.instanceButtonFontSize end,
+										set = function(_, value)
+											CoA.db.profile.instanceButtonFontSize = value
+
+											if CoA.UpdateInstanceButtonFont then
+												CoA:UpdateInstanceButtonFont()
+											end
+										end,
+									},
+									fontOutline = ACH:FontFlags("Font Outline", nil, 3, nil,
+										function() return CoA.db.profile.instanceButtonFontOutline end,
+										function(_, value)
+											CoA.db.profile.instanceButtonFontOutline = value
+
+											if CoA.UpdateInstanceButtonFont then
+												CoA:UpdateInstanceButtonFont()
+											end
+										end),
+								},
+							},
+						},
+					},
+				},
+			},
+			classResources = {
+				order = 2,
 				type = "group",
 				name = "Class Resources",
 				args = {
@@ -173,101 +310,8 @@ local function getOptions()
 					},
 				},
 			},
-			extraActionButton = {
-				order = 2,
-				type = "group",
-				name = "Extra Action Button",
-				args = {
-					header = {
-						order = 1,
-						type = "header",
-						name = "Extra Action Button",
-					},
-					desc = {
-						order = 2,
-						type = "description",
-						name = "You can move this element with Toggle Anchors.\n",
-					},
-					size = {
-						order = 3,
-						type = "range",
-						name = "Size",
-						desc = "Adjust the width/height of the Extra Action Button, in pixels.",
-						min = 30,
-						max = 100,
-						step = 1,
-						get = function() return CoA.db.profile.extraActionButtonSize end,
-						set = function(_, value)
-							CoA.db.profile.extraActionButtonSize = value
-
-							if CoA.UpdateExtraActionButtonSize then
-								CoA:UpdateExtraActionButtonSize()
-							end
-						end,
-					},
-				},
-			},
-			instanceSwap = {
-				order = 3,
-				type = "group",
-				name = "Instance Swap",
-				args = {
-					header = {
-						order = 1,
-						type = "header",
-						name = "Instance Swap",
-					},
-					desc = {
-						order = 2,
-						type = "description",
-						name = "You can move this element with Toggle Anchors.\n",
-					},
-					instanceFont = {
-						order = 3,
-						type = "group",
-						inline = true,
-						name = "Instance Font",
-						args = {
-							font = ACH:SharedMediaFont("Font", nil, 1, nil,
-								function() return CoA.db.profile.instanceButtonFont end,
-								function(_, value)
-									CoA.db.profile.instanceButtonFont = value
-
-									if CoA.UpdateInstanceButtonFont then
-										CoA:UpdateInstanceButtonFont()
-									end
-								end),
-							fontSize = {
-								order = 2,
-								type = "range",
-								name = "Font Size",
-								min = 8,
-								max = 32,
-								step = 1,
-								get = function() return CoA.db.profile.instanceButtonFontSize end,
-								set = function(_, value)
-									CoA.db.profile.instanceButtonFontSize = value
-
-									if CoA.UpdateInstanceButtonFont then
-										CoA:UpdateInstanceButtonFont()
-									end
-								end,
-							},
-							fontOutline = ACH:FontFlags("Font Outline", nil, 3, nil,
-								function() return CoA.db.profile.instanceButtonFontOutline end,
-								function(_, value)
-									CoA.db.profile.instanceButtonFontOutline = value
-
-									if CoA.UpdateInstanceButtonFont then
-										CoA:UpdateInstanceButtonFont()
-									end
-								end),
-						},
-					},
-				},
-			},
 			dispelHighlight = {
-				order = 4,
+				order = 3,
 				type = "group",
 				name = "Debuff Highlighting",
 				args = {
@@ -363,11 +407,15 @@ function CoA:Initialize()
 
 	EP:RegisterPlugin(AddOnName, getOptions)
 
-	if self.InitializeExtraActionBar then
+	-- ADDON_LOADED normally beats module init, but fall back to the defaults
+	-- rather than error out if a skin gets initialized before the DB exists.
+	local skins = self.db and self.db.profile.skins or defaults.profile.skins
+
+	if self.InitializeExtraActionBar and skins.extraActionButton then
 		self:InitializeExtraActionBar()
 	end
 
-	if self.InitializeLayerPicker then
+	if self.InitializeLayerPicker and skins.instanceSwap then
 		self:InitializeLayerPicker()
 	end
 
