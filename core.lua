@@ -18,11 +18,11 @@ local defaults = {
 		skins = {
 			extraActionButton = true,
 			instanceSwap = true,
-			talentFrames = {
+			collections = {
 				enable = true,
 				-- Multipliers on each frame's own scale, so 1 is "as the server
 				-- built it" rather than a fixed size.
-				talentScale = 1,
+				advancementScale = 1,
 				vanityScale = 1,
 				wardrobeScale = 1,
 			},
@@ -86,9 +86,9 @@ local function scaleOption(order, name, key)
 		min = 0.5,
 		max = 1.5,
 		step = 0.01,
-		get = function() return CoA.db.profile.skins.talentFrames[key] end,
+		get = function() return CoA.db.profile.skins.collections[key] end,
 		set = function(_, value)
-			CoA.db.profile.skins.talentFrames[key] = value
+			CoA.db.profile.skins.collections[key] = value
 
 			if CoA.UpdateFrameScales then
 				CoA:UpdateFrameScales()
@@ -239,25 +239,26 @@ local function getOptions()
 					-- One entry for the whole talent window: its own frame, the
 					-- tab row along its bottom, and the Vanity and Wardrobe
 					-- windows those tabs open. They're separate frames but one
-					-- feature to the player, and they're skinned as a set.
-					talents = {
+					-- feature to the player, and they're skinned as a set --
+					-- named for Collections, the container they all hang off.
+					collections = {
 						order = 3,
 						type = "group",
-						name = "Talents",
+						name = "Advancement/Vanity/Wardrobe",
 						args = {
 							header = {
 								order = 1,
 								type = "header",
-								name = "Talents",
+								name = "Advancement/Vanity/Wardrobe",
 							},
 							enable = {
 								order = 2,
 								type = "toggle",
 								name = "Enable",
 								desc = "Skin the talent window, its tabs, and the Vanity and Wardrobe windows. Requires a UI reload.",
-								get = function() return CoA.db.profile.skins.talentFrames.enable end,
+								get = function() return CoA.db.profile.skins.collections.enable end,
 								set = function(_, value)
-									CoA.db.profile.skins.talentFrames.enable = value
+									CoA.db.profile.skins.collections.enable = value
 									E:StaticPopup_Show("CONFIG_RL")
 								end,
 							},
@@ -266,9 +267,9 @@ local function getOptions()
 								type = "group",
 								inline = true,
 								name = "Scale",
-								disabled = function() return not CoA.db.profile.skins.talentFrames.enable end,
+								disabled = function() return not CoA.db.profile.skins.collections.enable end,
 								args = {
-									talentScale = scaleOption(1, "Talents", "talentScale"),
+									advancementScale = scaleOption(1, "Advancement", "advancementScale"),
 									vanityScale = scaleOption(2, "Vanity", "vanityScale"),
 									wardrobeScale = scaleOption(3, "Wardrobe", "wardrobeScale"),
 								},
@@ -499,7 +500,7 @@ function CoA:Initialize()
 
 	-- One switch for all three: the vanity and wardrobe windows are the talent
 	-- frame's own tabs, so skinning one without the others reads as a bug.
-	if skins.talentFrames.enable then
+	if skins.collections.enable then
 		if self.InitializeTalentFrame then
 			self:InitializeTalentFrame()
 		end

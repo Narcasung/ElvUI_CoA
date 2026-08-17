@@ -648,7 +648,7 @@ local function SkinFrame(frame)
 		-- run again on every show rather than once at hook time. The isSkinned
 		-- / backdrop guards inside ElvUI's handlers make re-runs cheap.
 		frame:HookScript("OnShow", function(self)
-			Skin:ApplyWindowScale("talentScale")
+			Skin:ApplyWindowScale("advancementScale")
 	Skin:Title(_G[FRAME_NAME.."TitleText"])
 			SkinCloseButton(self)
 			SkinBottomBar()
@@ -659,7 +659,7 @@ local function SkinFrame(frame)
 		end)
 	end
 
-	Skin:ApplyWindowScale("talentScale")
+	Skin:ApplyWindowScale("advancementScale")
 	Skin:Title(_G[FRAME_NAME.."TitleText"])
 	SkinCloseButton(frame)
 	SkinBottomBar()

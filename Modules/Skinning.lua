@@ -57,7 +57,7 @@ local CONTAINER_NAME = "Collections"
 local scaleKey
 
 local function GetScaleSetting(key)
-	local db = CoA.db and CoA.db.profile.skins.talentFrames
+	local db = CoA.db and CoA.db.profile.skins.collections
 
 	return (db and db[key]) or 1
 end
@@ -362,13 +362,23 @@ function Skin:Tab(tab, levelParent)
 				fontString:SetFont(font, size + TAB_FONT_GROWTH, flags)
 			end
 
-			-- The label's native anchor sits right off the icon, sized for the
-			-- smaller native font, so grown text collides with the icon. Nudged
-			-- off whatever point the native layout gave it rather than a
-			-- hardcoded anchor that would fight that layout.
-			local point, relTo, relPoint, x, y = fontString:GetPoint(1)
-			if point then
-				fontString:SetPoint(point, relTo, relPoint, x + TAB_LABEL_OFFSET, y)
+			-- Only for tabs that actually carry an icon. On those (the talent
+			-- window's) the label's native anchor sits right off the icon, sized
+			-- for the smaller native font, so grown text collides with it, and
+			-- the label is nudged off whatever point the native layout gave it
+			-- rather than a hardcoded anchor that would fight that layout. The
+			-- wardrobe's category tabs have no icon and centre their label, so
+			-- the same nudge just pushed every one of them off-centre to the
+			-- right.
+			local name = tab:GetName()
+			local icon = name and _G[name.."Icon"]
+
+			if icon and icon.GetTexture and icon:GetTexture() and icon:IsShown() then
+				local point, relTo, relPoint, x, y = fontString:GetPoint(1)
+
+				if point then
+					fontString:SetPoint(point, relTo, relPoint, x + TAB_LABEL_OFFSET, y)
+				end
 			end
 		end
 
