@@ -382,6 +382,10 @@ function CoA:Initialize()
 	if self.InitializeTalentFrame then
 		self:InitializeTalentFrame()
 	end
+
+	if self.InitializeVanityFrame then
+		self:InitializeVanityFrame()
+	end
 end
 
 local function InitializeCallback()
