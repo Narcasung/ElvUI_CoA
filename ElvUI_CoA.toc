@@ -16,3 +16,4 @@ Modules\DispelHighlight.lua
 Modules\ClassResources.lua
 Modules\TalentFrame.lua
 Modules\VanityFrame.lua
+Modules\WardrobeFrame.lua

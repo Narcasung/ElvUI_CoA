@@ -386,6 +386,10 @@ function CoA:Initialize()
 	if self.InitializeVanityFrame then
 		self:InitializeVanityFrame()
 	end
+
+	if self.InitializeWardrobeFrame then
+		self:InitializeWardrobeFrame()
+	end
 end
 
 local function InitializeCallback()
