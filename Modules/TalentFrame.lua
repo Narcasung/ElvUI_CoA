@@ -1,6 +1,7 @@
 local E, L, V, P, G = unpack(ElvUI)
 local S = E:GetModule("Skins")
 local CoA = E:GetModule("CoA")
+local Skin = CoA.Skin
 
 local FRAME_NAME = "CoATalentFrame"
 local TAB_NAME = "CollectionsPoolFrameCollectionTabTemplate%d"
@@ -78,14 +79,7 @@ local function SkinCloseButton(frame)
 	local close = _G[FRAME_NAME.."CloseButton"]
 	if not close then return end
 
-	-- Strictly once: HandleCloseButton strips the button every call, which
-	-- blanks the X texture it added on the first pass, and its own guard won't
-	-- rebuild it because the field still points at that blanked texture.
-	if not close.CoASkinned then
-		close.CoASkinned = true
-
-		S:HandleCloseButton(close)
-	end
+	Skin:CloseButton(close)
 
 	-- Re-applied on every pass, not once at skin time. The X is drawn on the
 	-- close button's own frame, so it needs to outrank TreeView, and TreeView
@@ -533,15 +527,8 @@ local function SkinBottomBar()
 		if menu and not menu.CoASkinned then
 			menu.CoASkinned = true
 
-			menu:StripTextures()
-			menu:SetTemplate("Transparent")
-
-			-- Once only: HandleCloseButton strips the button on every call,
-			-- which blanks the X it added on the first pass.
-			local close = _G[menuName.."Close"]
-			if close then
-				S:HandleCloseButton(close)
-			end
+			Skin:Panel(menu)
+			Skin:CloseButton(_G[menuName.."Close"])
 
 			-- Rows don't exist until the menu is first opened, which happens
 			-- long after the talent frame's own OnShow, so they're picked up
@@ -608,178 +595,19 @@ local function CropBackground()
 	end
 end
 
--- S:HandleTab can't be used here: it clears the tab background by name,
--- looking for a "Middle" piece, and these tabs name theirs "Center", so the
--- body of the tab survives and the ElvUI backdrop just lands behind the old
--- art. The unnamed ARTWORK region is the tab's icon and is left alone.
-local TAB_TEXTURES = {"Left", "Center", "Right", "LeftDisabled", "CenterDisabled", "RightDisabled"}
-
--- Blizzard's own tab code re-sets these textures both when the frame reopens
--- and, separately, on every tab switch -- and a switch never fires the talent
--- frame's OnShow, only SetChecked. So this has to be idempotent and re-run
--- from both places rather than skinned once behind a guard.
-local function StripTab(tab)
-	local name = tab:GetName()
-	if name then
-		for _, suffix in ipairs(TAB_TEXTURES) do
-			local tex = _G[name..suffix]
-			if tex then tex:SetTexture(nil) end
-		end
-	end
-
-	local highlight = tab.GetHighlightTexture and tab:GetHighlightTexture()
-	if highlight then highlight:SetTexture(nil) end
-
-	local checked = tab.GetCheckedTexture and tab:GetCheckedTexture()
-	if checked then checked:SetTexture(nil) end
-end
-
--- Same sibling problem as the close button (see SkinCloseButton): the tabs
--- aren't children of the talent frame, so growing one taller lets its top
--- edge poke up behind the frame's own panel art instead of in front of it.
---
--- The backdrop's own level is left alone -- CreateBackdrop keeps it level
--- with the tab by default, and regions render fine on top of a same-level
--- child. Forcing the backdrop a level *above* the tab (tried here once)
--- reproduces the child-frame-covers-parent's-own-regions quirk noted in
--- StripRowArt, which is why the label vanished that time. Raising the tab is
--- enough; the backdrop, clamped to the tab's new level automatically, rises
--- with it.
-local function BumpTabLevel(tab)
-	local frame = _G[FRAME_NAME]
-	if not frame then return end
-
-	tab:SetFrameStrata(frame:GetFrameStrata())
-	tab:SetFrameLevel(frame:GetFrameLevel() + 20)
-end
-
--- Grown height, self-healing the same way: on a plain /reload the tab's
--- native height isn't settled yet at SkinTab time (Blizzard lays it out
--- asynchronously), so a one-shot SetHeight there caught a stale value and
--- produced a shorter tab until something (a switch, a reopen) let Blizzard's
--- own layout finish and this caught the corrected height.
---
--- Compared by equality rather than "did it shrink": Blizzard's late layout
--- can land on a height *larger* than the stale one this originally grew from,
--- and a shrink-only check would then see current > target and never regrow,
--- leaving the tab at Blizzard's native size with none of the padding added.
--- Checking for any drift away from what was last written here catches that
--- direction too, but GetHeight doesn't read back byte-exact after SetHeight
--- -- UI scale rounds it to a slightly different float -- so a strict ~=
--- compare never held and this grew every single tick without bound. Half a
--- pixel of slack absorbs that rounding while still catching a genuine
--- Blizzard-driven change, which is always a full tab's worth of height, not
--- a rounding error's worth.
-local TAB_GROWTH = 8
-local TAB_HEIGHT_EPSILON = 0.5
-
-local function UpdateTabSize(tab)
-	local height = tab:GetHeight()
-
-	if not tab.CoAGrownHeight or math.abs(height - tab.CoAGrownHeight) > TAB_HEIGHT_EPSILON then
-		tab.CoAGrownHeight = height + TAB_GROWTH
-		tab:SetHeight(tab.CoAGrownHeight)
-	end
-end
-
--- Only the active tab gets a SetChecked call on every switch -- the other two
--- never fire it again after the first skin, but their art still comes back,
--- so there's no event to hook for them. Checked from OnUpdate instead, same
--- as RestoreArrow/UpdateRowArt: cheap GetTexture() compare, only pays for the
--- full strip when the native art has actually reappeared.
---
--- The frame-level bump is re-applied here too, every frame rather than only
--- on OnShow/SetChecked: the earlier fix (bumping only from those two spots)
--- still left the tabs behind the panel, which means whatever resets their
--- level on a switch isn't SetChecked either. OnUpdate is the one hook proven
--- to survive every path that reverts these tabs, so it's the catch-all.
-local function UpdateTabArt(tab)
-	BumpTabLevel(tab)
-	UpdateTabSize(tab)
-
-	local name = tab:GetName()
-	local tex = name and _G[name.."Left"]
-
-	if tex and tex:GetTexture() then
-		StripTab(tab)
-	end
-end
-
--- These are CheckButtons, but no fill or border swap is needed to mark the
--- open one -- Blizzard's own tab code already turns the label white on the
--- checked tab and leaves the rest their normal colour, same as the
--- Friends/Character tab rows. Only the art strip needs to re-run here.
-local function UpdateTabSelection(tab)
-	StripTab(tab)
-end
-
-local function SkinTab(tab)
-	if tab.CoASkinned then return end
-	tab.CoASkinned = true
-
-	StripTab(tab)
-
-	-- Default rather than Transparent: these sit below the frame over open
-	-- world, so a see-through panel reads as washed out instead of as the
-	-- solid tabs the retail layout has.
-	--
-	-- Insets alone only resize the plate within the tab's native bounds --
-	-- padding around the (now bigger) label needs the tab itself taller.
-	-- Height is grown by UpdateTabSize (from the OnUpdate hook below) rather
-	-- than here, since the native height isn't settled yet at this point.
-	tab:CreateBackdrop("Default")
-	tab.backdrop:Point("TOPLEFT", 3, -3)
-	tab.backdrop:Point("BOTTOMRIGHT", -3, 3)
-	tab:SetHitRectInsets(3, 3, 3, 3)
-
-	-- Native size is a retail leftover -- every other ElvUI tab row in this
-	-- client reads bigger. Grown in place off the font's own current size
-	-- rather than a hardcoded number, so it still scales with the user's
-	-- font settings.
-	local fontString = tab.GetFontString and tab:GetFontString()
-	if fontString then
-		local font, size, flags = fontString:GetFont()
-		if font then
-			fontString:SetFont(font, size + 3, flags)
-		end
-
-		-- The label's native anchor sits right off the icon, sized for the
-		-- smaller native font. Grown text collides with the icon at that
-		-- offset, so it's nudged right off whatever point Blizzard anchored
-		-- it to rather than a hardcoded anchor that would fight the tab's
-		-- own layout.
-		local point, relTo, relPoint, x, y = fontString:GetPoint(1)
-		if point then
-			fontString:SetPoint(point, relTo, relPoint, x + 12, y)
-		end
-	end
-
-	hooksecurefunc(tab, "SetChecked", UpdateTabSelection)
-	UpdateTabSelection(tab)
-
-	tab:HookScript("OnUpdate", UpdateTabArt)
-end
-
--- Same sibling problem as the close button (see SkinCloseButton): the tabs
--- aren't children of the talent frame, so growing one taller lets its top
--- edge poke up behind the frame's own panel art instead of in front of it.
--- Re-applied every pass rather than once, since whatever re-raises the frame
--- doesn't carry the tabs' absolute level along with it.
---
--- The backdrop's own level is left alone -- CreateBackdrop keeps it level
--- with the tab by default, and regions render fine on top of a same-level
--- child. Forcing the backdrop a level *above* the tab (tried here once)
--- reproduces the child-frame-covers-parent's-own-regions quirk noted in
--- StripRowArt, which is why the label vanished. Raising the tab is enough;
--- the backdrop, clamped to the tab's new level automatically, rises with it.
+-- Tabs go through the shared handler (see Skinning.lua) so they come out
+-- identical to the wardrobe's category tabs. The talent frame is passed as the
+-- level parent because, unlike those, these tabs aren't its children -- they're
+-- separately-placed siblings, so once grown their top edge pokes up behind the
+-- frame's own panel art unless they're raised above it.
 local function SkinTabs()
+	local frame = _G[FRAME_NAME]
+
 	for i = 1, MAX_TABS do
 		local tab = _G[TAB_NAME:format(i)]
 		if not tab then break end
 
-		SkinTab(tab)
-		StripTab(tab)
-		BumpTabLevel(tab)
+		Skin:Tab(tab, frame)
 	end
 end
 
@@ -807,23 +635,13 @@ local function SkinFrame(frame)
 	if not frame.CoASkinned then
 		frame.CoASkinned = true
 
-		frame:StripTextures()
-
-		local nineSlice = _G[FRAME_NAME.."NineSlice"]
-		if nineSlice then
-			nineSlice:StripTextures()
-			nineSlice:Hide()
-		end
+		Skin:HideArt(_G[FRAME_NAME.."NineSlice"])
 
 		-- The round portrait medallion overhangs the top-left corner and has
 		-- no flat equivalent, so it goes rather than getting reskinned.
-		local portrait = _G[FRAME_NAME.."PortraitFrame"]
-		if portrait then
-			portrait:StripTextures()
-			portrait:Hide()
-		end
+		Skin:HideArt(_G[FRAME_NAME.."PortraitFrame"])
 
-		frame:SetTemplate("Transparent")
+		Skin:Panel(frame)
 
 		-- The choice cards are pulled from the pool as the view opens, so the
 		-- talent frame's own show is too early to catch them. Run on the view's
@@ -840,6 +658,7 @@ local function SkinFrame(frame)
 		-- run again on every show rather than once at hook time. The isSkinned
 		-- / backdrop guards inside ElvUI's handlers make re-runs cheap.
 		frame:HookScript("OnShow", function(self)
+			Skin:Title(_G[FRAME_NAME.."TitleText"])
 			SkinCloseButton(self)
 			SkinBottomBar()
 			CropBackground()
@@ -849,6 +668,7 @@ local function SkinFrame(frame)
 		end)
 	end
 
+	Skin:Title(_G[FRAME_NAME.."TitleText"])
 	SkinCloseButton(frame)
 	SkinBottomBar()
 	-- Not CropBackground() here: this runs pre-Show now (see InitializeTalentFrame),
@@ -873,19 +693,6 @@ end
 
 function CoA:InitializeTalentFrame()
 	if not E.private.skins.blizzard.enable then return end
-	if TryHook() then return end
 
-	-- Frame is created on-demand by its owning addon (e.g. Ascension_CoATalents),
-	-- the instant the player first opens it -- a poll can't catch that before the
-	-- native art gets a paint. ADDON_LOADED fires (synchronously, before control
-	-- returns to whatever code calls :Show()) the moment that addon finishes
-	-- loading, so skinning here lands before the first-ever :Show(), killing the
-	-- one-frame flicker a poll-based catch can't avoid. Confirmed in-game.
-	local loader = CreateFrame("Frame")
-	loader:RegisterEvent("ADDON_LOADED")
-	loader:SetScript("OnEvent", function(self)
-		if TryHook() then
-			self:UnregisterEvent("ADDON_LOADED")
-		end
-	end)
+	Skin:OnFrameAvailable(TryHook)
 end

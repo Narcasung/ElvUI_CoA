@@ -14,6 +14,7 @@ Modules\ExtraActionBar.lua
 Modules\LayerPicker.lua
 Modules\DispelHighlight.lua
 Modules\ClassResources.lua
+Modules\Skinning.lua
 Modules\TalentFrame.lua
 Modules\VanityFrame.lua
 Modules\WardrobeFrame.lua
