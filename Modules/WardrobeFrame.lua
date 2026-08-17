@@ -52,6 +52,10 @@ local function SkinCategoryTabs()
 end
 
 local function SkinContents()
+	-- Scale is set on the shared container while this window is the open one,
+	-- which carries the tab row along with it (see Skinning.lua).
+	Skin:ApplyWindowScale("wardrobeScale")
+	Skin:CollectionTabs(_G[FRAME_NAME])
 	Skin:Title(_G[FRAME_NAME.."TitleText"])
 	Skin:CloseButton(_G[FRAME_NAME.."CloseButton"])
 	SkinActionButtons()

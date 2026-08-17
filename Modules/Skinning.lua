@@ -35,6 +35,59 @@ function Skin:CloseButton(close)
 	close:Size(CLOSE_BUTTON_SIZE)
 end
 
+-- Scale is a per-frame setting rather than one shared number: the three frames
+-- don't ship at the same scale (the vanity store's is about 9% larger than the
+-- other two, measured), and that's the server's choice, so the slider is a
+-- multiplier on whatever each frame was given rather than an absolute. A
+-- setting of 1 therefore leaves every frame exactly as it came.
+--
+-- Scale is applied to Collections, the container all three windows and the tab
+-- row are children of (confirmed by probe), rather than to a window itself.
+-- Collections is also the only one of them with mouse enabled -- it's what the
+-- player drags -- so scaling a window directly shrank the art while leaving the
+-- drag target at full size, which is why a shrunk window had to be grabbed by
+-- clicking outside itself. Scaling the container moves its hit area with it,
+-- and the tabs come along as its children.
+--
+-- The setting is still per-window: only one of them is ever open, and each
+-- re-applies its own on show. The native scale is captured before anything here
+-- has written one, so re-applying can't compound.
+local CONTAINER_NAME = "Collections"
+
+local scaleKey
+
+local function GetScaleSetting(key)
+	local db = CoA.db and CoA.db.profile.skins.talentFrames
+
+	return (db and db[key]) or 1
+end
+
+function Skin:ApplyWindowScale(key)
+	local container = _G[CONTAINER_NAME]
+	if not container then return end
+
+	if not container.CoANativeScale then
+		container.CoANativeScale = container:GetScale()
+	end
+
+	-- Remembered so the slider can re-apply for whichever window is open.
+	scaleKey = key
+
+	local scale = container.CoANativeScale * GetScaleSetting(key)
+
+	if container:GetScale() ~= scale then
+		container:SetScale(scale)
+	end
+end
+
+-- Live update from the slider: a window only re-runs its own skin pass on show,
+-- and a scale change should land while one is open.
+function CoA:UpdateFrameScales()
+	if scaleKey then
+		Skin:ApplyWindowScale(scaleKey)
+	end
+end
+
 -- The talent and wardrobe frames title in Arial Narrow, the vanity store in
 -- Friz Quadrata (measured live). Arial Narrow is the one that matches the rest
 -- of the layout, so it's pinned here rather than left to the frames -- and
@@ -252,15 +305,37 @@ local function OnTabChecked(tab)
 	Skin:StripTabArt(tab)
 end
 
+-- The tab row along the bottom of the talent window is one set of buttons
+-- shared by all three windows it switches between, not one row per window,
+-- which is why it lives here rather than in any single frame's module. It
+-- doesn't need scaling of its own -- it's a child of Collections, so it follows
+-- whatever ApplyWindowScale sets.
+local COLLECTION_TAB = "CollectionsPoolFrameCollectionTabTemplate%d"
+local MAX_COLLECTION_TABS = 10
+
+function Skin:CollectionTabs(owner)
+	for i = 1, MAX_COLLECTION_TABS do
+		local tab = _G[COLLECTION_TAB:format(i)]
+		if not tab then break end
+
+		self:Tab(tab, owner)
+	end
+end
+
 -- levelParent is the frame the tab must draw above, and is only needed for tabs
 -- that aren't its children (see BumpTabLevel). Pass nil for tabs parented to
 -- the frame they belong to -- normal parent/child z-order already covers those.
 function Skin:Tab(tab, levelParent)
 	if not tab then return end
 
+	-- Set on every call rather than only the first: the collection tabs are
+	-- shared, so the frame they have to draw above is whichever window is open.
+	if levelParent then
+		tab.CoALevelParent = levelParent
+	end
+
 	if not tab.CoASkinned then
 		tab.CoASkinned = true
-		tab.CoALevelParent = levelParent
 
 		self:StripTabArt(tab)
 

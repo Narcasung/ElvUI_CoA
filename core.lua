@@ -18,6 +18,14 @@ local defaults = {
 		skins = {
 			extraActionButton = true,
 			instanceSwap = true,
+			talentFrames = {
+				enable = true,
+				-- Multipliers on each frame's own scale, so 1 is "as the server
+				-- built it" rather than a fixed size.
+				talentScale = 1,
+				vanityScale = 1,
+				wardrobeScale = 1,
+			},
 		},
 		extraActionButtonSize = 52,
 		instanceButtonFont = "PT Sans Narrow",
@@ -39,6 +47,7 @@ function CoA:RefreshConfig()
 	if self.UpdateInstanceButtonFont then self:UpdateInstanceButtonFont() end
 	if self.UpdateDispelHighlight then self:UpdateDispelHighlight() end
 	if self.UpdateClassResourceVisibility then self:UpdateClassResourceVisibility() end
+	if self.UpdateFrameScales then self:UpdateFrameScales() end
 end
 
 CoA:RegisterEvent("ADDON_LOADED", function(_, addon)
@@ -65,6 +74,28 @@ CoA:RegisterEvent("ADDON_LOADED", function(_, addon)
 	CoA.db.RegisterCallback(CoA, "OnProfileCopied", "RefreshConfig")
 	CoA.db.RegisterCallback(CoA, "OnProfileReset", "RefreshConfig")
 end)
+
+-- One slider per window rather than a single shared one: the three don't ship
+-- at the same scale, so a shared value would only line them up by flattening
+-- the difference the server built in.
+local function scaleOption(order, name, key)
+	return {
+		order = order,
+		type = "range",
+		name = name,
+		min = 0.5,
+		max = 1.5,
+		step = 0.01,
+		get = function() return CoA.db.profile.skins.talentFrames[key] end,
+		set = function(_, value)
+			CoA.db.profile.skins.talentFrames[key] = value
+
+			if CoA.UpdateFrameScales then
+				CoA:UpdateFrameScales()
+			end
+		end,
+	}
+end
 
 local function getOptions()
 	local profiles = AceDBOptions:GetOptionsTable(CoA.db)
@@ -201,6 +232,45 @@ local function getOptions()
 												CoA:UpdateInstanceButtonFont()
 											end
 										end),
+								},
+							},
+						},
+					},
+					-- One entry for the whole talent window: its own frame, the
+					-- tab row along its bottom, and the Vanity and Wardrobe
+					-- windows those tabs open. They're separate frames but one
+					-- feature to the player, and they're skinned as a set.
+					talents = {
+						order = 3,
+						type = "group",
+						name = "Talents",
+						args = {
+							header = {
+								order = 1,
+								type = "header",
+								name = "Talents",
+							},
+							enable = {
+								order = 2,
+								type = "toggle",
+								name = "Enable",
+								desc = "Skin the talent window, its tabs, and the Vanity and Wardrobe windows. Requires a UI reload.",
+								get = function() return CoA.db.profile.skins.talentFrames.enable end,
+								set = function(_, value)
+									CoA.db.profile.skins.talentFrames.enable = value
+									E:StaticPopup_Show("CONFIG_RL")
+								end,
+							},
+							scale = {
+								order = 3,
+								type = "group",
+								inline = true,
+								name = "Scale",
+								disabled = function() return not CoA.db.profile.skins.talentFrames.enable end,
+								args = {
+									talentScale = scaleOption(1, "Talents", "talentScale"),
+									vanityScale = scaleOption(2, "Vanity", "vanityScale"),
+									wardrobeScale = scaleOption(3, "Wardrobe", "wardrobeScale"),
 								},
 							},
 						},
@@ -427,16 +497,20 @@ function CoA:Initialize()
 		self:InitializeClassResources()
 	end
 
-	if self.InitializeTalentFrame then
-		self:InitializeTalentFrame()
-	end
+	-- One switch for all three: the vanity and wardrobe windows are the talent
+	-- frame's own tabs, so skinning one without the others reads as a bug.
+	if skins.talentFrames.enable then
+		if self.InitializeTalentFrame then
+			self:InitializeTalentFrame()
+		end
 
-	if self.InitializeVanityFrame then
-		self:InitializeVanityFrame()
-	end
+		if self.InitializeVanityFrame then
+			self:InitializeVanityFrame()
+		end
 
-	if self.InitializeWardrobeFrame then
-		self:InitializeWardrobeFrame()
+		if self.InitializeWardrobeFrame then
+			self:InitializeWardrobeFrame()
+		end
 	end
 end
 

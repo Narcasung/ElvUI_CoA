@@ -4,8 +4,6 @@ local CoA = E:GetModule("CoA")
 local Skin = CoA.Skin
 
 local FRAME_NAME = "CoATalentFrame"
-local TAB_NAME = "CollectionsPoolFrameCollectionTabTemplate%d"
-local MAX_TABS = 10
 
 -- The talent tree is the one part of the frame we must not touch: every node
 -- is an icon button whose border/overlay textures encode rank and
@@ -595,20 +593,12 @@ local function CropBackground()
 	end
 end
 
--- Tabs go through the shared handler (see Skinning.lua) so they come out
--- identical to the wardrobe's category tabs. The talent frame is passed as the
--- level parent because, unlike those, these tabs aren't its children -- they're
--- separately-placed siblings, so once grown their top edge pokes up behind the
--- frame's own panel art unless they're raised above it.
+-- The tab row is shared with the vanity and wardrobe windows and is handled in
+-- Skinning.lua. The talent frame is passed as its owner while this window is
+-- the open one: the tabs aren't its children, so they don't draw above its
+-- panel on their own.
 local function SkinTabs()
-	local frame = _G[FRAME_NAME]
-
-	for i = 1, MAX_TABS do
-		local tab = _G[TAB_NAME:format(i)]
-		if not tab then break end
-
-		Skin:Tab(tab, frame)
-	end
+	Skin:CollectionTabs(_G[FRAME_NAME])
 end
 
 local SPEC_CHOICE = FRAME_NAME.."SpecViewPoolFrameCoASpecChoiceTemplate%d"
@@ -658,7 +648,8 @@ local function SkinFrame(frame)
 		-- run again on every show rather than once at hook time. The isSkinned
 		-- / backdrop guards inside ElvUI's handlers make re-runs cheap.
 		frame:HookScript("OnShow", function(self)
-			Skin:Title(_G[FRAME_NAME.."TitleText"])
+			Skin:ApplyWindowScale("talentScale")
+	Skin:Title(_G[FRAME_NAME.."TitleText"])
 			SkinCloseButton(self)
 			SkinBottomBar()
 			CropBackground()
@@ -668,6 +659,7 @@ local function SkinFrame(frame)
 		end)
 	end
 
+	Skin:ApplyWindowScale("talentScale")
 	Skin:Title(_G[FRAME_NAME.."TitleText"])
 	SkinCloseButton(frame)
 	SkinBottomBar()
