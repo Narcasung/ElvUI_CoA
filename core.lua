@@ -39,7 +39,21 @@ CoA:RegisterEvent("ADDON_LOADED", function(_, addon)
 	if addon ~= AddOnName then return end
 	CoA:UnregisterEvent("ADDON_LOADED")
 
-	CoA.db = AceDB:New("ElvUI_CoADB", defaults, true)
+	CoA.db = AceDB:New("ElvUI_CoADB", defaults)
+
+	-- One-time migration: earlier versions pinned every character to a single
+	-- shared "Default" profile. Move each character to its own name-based
+	-- profile (copying over the settings it already had) the first time it logs in.
+	if not CoA.db.char.migratedSharedProfile then
+		local charProfile = CoA.db.keys.char
+
+		if CoA.db:GetCurrentProfile() == "Default" and charProfile ~= "Default" then
+			CoA.db:SetProfile(charProfile)
+			CoA.db:CopyProfile("Default", true)
+		end
+
+		CoA.db.char.migratedSharedProfile = true
+	end
 
 	CoA.db.RegisterCallback(CoA, "OnProfileChanged", "RefreshConfig")
 	CoA.db.RegisterCallback(CoA, "OnProfileCopied", "RefreshConfig")
