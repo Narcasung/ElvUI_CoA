@@ -22,9 +22,9 @@ local CLASS_DISPEL_TYPES = {
 -- every class tree, so querying one from a class that can't take it simply
 -- reports rank 0 rather than erroring.
 local TALENT_DISPEL_TYPES = {
-	PROPHET = {talentID = 6324, types = {Curse = true}}, -- Blight Antidote
-	CULTIST = {talentID = 12982, types = {Curse = true}}, -- Devour Curse
-	PYROMANCER = {talentID = 31276, types = {Magic = true, Disease = true, Bleed = true}}, -- Burn Impurities
+	PROPHET = {talentID = 6324, talentName = "Blight Antidote", types = {Curse = true}},
+	CULTIST = {talentID = 12982, talentName = "Devour Curse", types = {Curse = true}},
+	PYROMANCER = {talentID = 31276, talentName = "Burn Impurities", types = {Magic = true, Disease = true, Bleed = true}},
 }
 
 -- Cached result of the talent lookup for the player's current build.
@@ -35,20 +35,45 @@ local hasTalentDispel = false
 -- C_CharacterAdvancement is a server addition with no API documentation, so
 -- every entry point is guarded and a failed call reads as "talent not taken",
 -- which degrades to the same behaviour as before auto-detection existed.
-local function HasTalent(talentID)
+local function HasTalent(talent)
 	local api = C_CharacterAdvancement
-	if not (api and type(api.GetTalentRankByID) == "function") then return false end
+	if not api then return false end
 
-	local ok, rank = pcall(api.GetTalentRankByID, talentID)
+	if type(api.GetTalentRankByID) == "function" then
+		local ok, rank = pcall(api.GetTalentRankByID, talent.talentID)
+		if ok and type(rank) == "number" and rank > 0 then return true end
+	end
 
-	return ok and type(rank) == "number" and rank > 0
+	-- Fall back to matching the talent by name, so an entry ID gone stale after
+	-- a server rebalance doesn't silently switch the feature off. Names are the
+	-- more fragile key of the two, but GetKnownTalentEntries only ever lists
+	-- entries the player has actually learned, which makes this a genuinely
+	-- independent check rather than a second opinion on the same ID. The list
+	-- has been seen with holes in it, so it's walked with pairs.
+	if type(api.GetKnownTalentEntries) == "function" then
+		local ok, entries = pcall(api.GetKnownTalentEntries)
+		if ok and type(entries) == "table" then
+			for _, entry in pairs(entries) do
+				if type(entry) == "table" and entry.Name == talent.talentName then return true end
+			end
+		end
+	end
+
+	return false
 end
 
+-- Returns whether the talent state actually moved, so callers reacting to the
+-- chattier advancement events can skip the unitframe rebuild when it didn't.
 local function RefreshTalentState()
 	local _, class = UnitClass("player")
 	local talent = TALENT_DISPEL_TYPES[class]
+	local hasTalent = (talent and HasTalent(talent)) or false
 
-	hasTalentDispel = (talent and HasTalent(talent.talentID)) or false
+	if hasTalent == hasTalentDispel then return false end
+
+	hasTalentDispel = hasTalent
+
+	return true
 end
 
 function CoA:CanDispel(debuffType)
@@ -100,6 +125,12 @@ function CoA:UpdateDispelHighlight()
 	UF:Update_AllFrames()
 end
 
+function CoA:RefreshDispelTalents()
+	if RefreshTalentState() then
+		UF:Update_AllFrames()
+	end
+end
+
 -- On Ascension, UnitClass("player")'s second return only reliably reports the
 -- real custom class (CULTIST, PYROMANCER, ...) a short while after login --
 -- immediately at ADDON_LOADED/PLAYER_LOGIN it can still read back the generic
@@ -109,17 +140,26 @@ end
 -- next aura change. Force one extra refresh shortly after entering the world
 -- so the very first debuff isn't judged too early.
 --
--- CHARACTER_ADVANCEMENT_UPDATE_ENTRIES_RESULT fires when a build is confirmed,
--- which is the point the talent ranks actually change. The advancement UI also
--- fires CHARACTER_ADVANCEMENT_PENDING_BUILD_UPDATED while talents are being
--- clicked around, but ranks don't move until the build is saved, so listening
--- to it would only cost refreshes that read back the unchanged state.
+-- CHARACTER_ADVANCEMENT_UPDATE_ENTRIES_RESULT fires when a build is confirmed
+-- in the talent UI, but switching to another saved specialization doesn't
+-- confirm anything -- that path only fires PENDING_BUILD_UPDATED and
+-- SUGGESTIONS_UPDATED, so both are needed or the ranks read stale for the rest
+-- of the session. PENDING_BUILD_UPDATED also fires on every click inside the
+-- talent UI and SUGGESTIONS_UPDATED is only incidentally related, which is why
+-- they go through RefreshDispelTalents: it costs one rank lookup and rebuilds
+-- the unitframes only when the answer changed.
 function CoA:InitializeDispelHighlight()
 	CoA:RegisterEvent("PLAYER_ENTERING_WORLD", function()
 		CoA:ScheduleTimer("UpdateDispelHighlight", 2)
 	end)
 
-	CoA:RegisterEvent("CHARACTER_ADVANCEMENT_UPDATE_ENTRIES_RESULT", function()
-		CoA:UpdateDispelHighlight()
-	end)
+	for _, event in ipairs({
+		"CHARACTER_ADVANCEMENT_UPDATE_ENTRIES_RESULT",
+		"CHARACTER_ADVANCEMENT_PENDING_BUILD_UPDATED",
+		"CHARACTER_ADVANCEMENT_SUGGESTIONS_UPDATED",
+	}) do
+		CoA:RegisterEvent(event, function()
+			CoA:RefreshDispelTalents()
+		end)
+	end
 end
