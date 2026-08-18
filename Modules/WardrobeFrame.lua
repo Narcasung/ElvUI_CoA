@@ -13,6 +13,54 @@ local function SkinActionButtons()
 	S:HandleButton(_G[FRAME_NAME.."DisableSpellVisualsButton"])
 end
 
+-- Apply and Cancel only exist while a transmog change is pending, which is why
+-- they were missed for so long -- but they exist from the start rather than
+-- being created on the first change (probed: both are Buttons, hidden, with
+-- nothing pending), so the normal skin pass reaches them.
+--
+-- Same widget as the talent frame's Activate button: the pill is drawn across
+-- plain regions, with no Normal/Pushed texture for HandleButton to clear
+-- (probed: both come back nil). Apply takes the green variant of the gold
+-- atlas, Cancel is drawn from the red file instead -- Skin.RedButtonArt matches
+-- both, and Cancel's HIGHLIGHT region goes with the rest of its art.
+--
+-- The labels don't carry the atlas's green/red split over: the two buttons sit
+-- side by side and read apart by their text, and they take the same yellow
+-- every other templated button on these frames uses -- the talent frame's live
+-- Activate label included -- so a pending change doesn't get its own colour
+-- scheme.
+local LABEL_COLOR = {1, 0.82, 0}
+
+-- The strip runs on every pass rather than once behind the skinned guard: the
+-- art is only there to be cleared once a change is pending, and nothing fires
+-- the frame's OnShow at that point -- the window is already open. The buttons'
+-- own OnShow is what catches it, since that is exactly when they appear.
+local function SkinPendingButton(name)
+	local button = _G[name]
+	if not button then return end
+
+	Skin:StripArtByFile(button, Skin.RedButtonArt)
+
+	if button.CoASkinned then return end
+	button.CoASkinned = true
+
+	-- Stripped before templating: HandleButton adds its backdrop as regions of
+	-- this same button, so a strip afterwards takes the backdrop with the pill.
+	S:HandleButton(button)
+
+	local text = button.GetFontString and button:GetFontString()
+	if text then text:SetTextColor(unpack(LABEL_COLOR)) end
+
+	button:HookScript("OnShow", function(self)
+		Skin:StripArtByFile(self, Skin.RedButtonArt)
+	end)
+end
+
+local function SkinPendingButtons()
+	SkinPendingButton(FRAME_NAME.."PlayerModelApplyButton")
+	SkinPendingButton(FRAME_NAME.."PlayerModelCancelButton")
+end
+
 local function SkinSearchBox()
 	S:HandleEditBox(_G[FRAME_NAME.."CollectionSearchBox"])
 end
@@ -59,6 +107,7 @@ local function SkinContents()
 	Skin:Title(_G[FRAME_NAME.."TitleText"])
 	Skin:CloseButton(_G[FRAME_NAME.."CloseButton"])
 	SkinActionButtons()
+	SkinPendingButtons()
 	SkinSearchBox()
 	SkinCollectionDropdown("Filter")
 	SkinCollectionDropdown("Sorting")

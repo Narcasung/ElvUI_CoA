@@ -316,24 +316,10 @@ end
 -- switches between the green and the grey variant by tex coord. There are no
 -- Normal/Pushed/Disabled textures for HandleButton to clear (probed: both come
 -- back nil, and every region's vertex colour is white in either state), so the
--- art is cleared by file the way the dropdown pills are, and the enabled/
--- disabled distinction the atlas was carrying has to be re-created on the label.
-local ACTIVATE_ART = "128GoldRedButton"
-
--- SetTexture is noop'd per region for the same reason as the dropdown pills:
--- whatever swaps the tex coord on a state change is free to re-art the region
--- as well, and a cleared texture would come straight back.
-local function StripActivateArt(button)
-	for i = 1, button:GetNumRegions() do
-		local region = select(i, button:GetRegions())
-		local texture = region.GetTexture and region:GetTexture()
-
-		if texture and tostring(texture):find(ACTIVATE_ART) then
-			region:SetTexture(nil)
-			region.SetTexture = E.noop
-		end
-	end
-end
+-- art is cleared by file the way the dropdown pills are (Skin:StripArtByFile,
+-- which noops SetTexture per region as well -- whatever swaps the tex coord on
+-- a state change is free to re-art the region), and the enabled/disabled
+-- distinction the atlas was carrying has to be re-created on the label.
 
 -- GetFontString covers the templated case; the scan is for a label that was
 -- added as a plain region rather than set as the button's own font string.
@@ -393,7 +379,7 @@ local function SkinActivateButton(button)
 	if not button.CoASkinned then
 		button.CoASkinned = true
 
-		StripActivateArt(button)
+		Skin:StripArtByFile(button, Skin.RedButtonArt)
 		S:HandleButton(button)
 
 		button:HookScript("OnUpdate", UpdateActivateState)

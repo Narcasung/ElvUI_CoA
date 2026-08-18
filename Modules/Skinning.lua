@@ -138,30 +138,43 @@ function Skin:HideArt(frame)
 	frame:Hide()
 end
 
--- The dropdown pills on the vanity and wardrobe frames are the same widget:
--- nine anonymous "Silver-Button" slices rather than the named Left/Middle/Right
--- fields or the Normal/Pushed/Disabled set S:HandleButton knows how to clear,
--- so its own clearing can't reach them -- and a blind StripTextures would take
--- the caret and the label with them.
+-- Several of these controls draw their art as anonymous regions of one atlas
+-- file rather than through the named Left/Middle/Right fields or the Normal/
+-- Pushed/Disabled set S:HandleButton knows how to clear, so its own clearing
+-- can't reach them -- and a blind StripTextures would take the caret or the
+-- label with it. Those are cleared by file instead.
 --
--- The native mouse-down handler re-arts one of these regions with a pressed
--- variant of the same file on every click, which is why the pill came back
--- skinless while held. SetTexture is noop'd per region after clearing.
-local DROPDOWN_ART = "Silver%-Button"
-local CARET_ART = "ChatFrameExpandArrow"
-local CARET_SIZE = 14
+-- SetTexture is noop'd per region rather than just cleared: whatever re-arts
+-- the control on a state change (a mouse-down swapping in the pressed variant,
+-- a tex coord swap between two variants of the same file) is free to re-set the
+-- file as well, and a cleared texture would come straight back.
+function Skin:StripArtByFile(frame, pattern)
+	if not frame then return end
 
-local function StripDropdownArt(dropdown)
-	for i = 1, dropdown:GetNumRegions() do
-		local region = select(i, dropdown:GetRegions())
+	for i = 1, frame:GetNumRegions() do
+		local region = select(i, frame:GetRegions())
 		local texture = region.GetTexture and region:GetTexture()
 
-		if texture and tostring(texture):find(DROPDOWN_ART) then
+		if texture and tostring(texture):find(pattern) then
 			region:SetTexture(nil)
 			region.SetTexture = E.noop
 		end
 	end
 end
+
+-- The pill behind the talent frame's Activate button and the wardrobe's Apply
+-- and Cancel buttons. Two files rather than one: "128GoldRedButton" carries the
+-- green and grey variants as tex coords, and Cancel alone is drawn from
+-- "128RedButton" (probed) -- including its HIGHLIGHT region, which is what left
+-- a red glow under the cursor while only the gold file was being cleared. The
+-- shared suffix matches both, and nothing else on these frames uses either.
+Skin.RedButtonArt = "RedButton"
+
+-- The dropdown pills on the vanity and wardrobe frames are the same widget:
+-- nine anonymous "Silver-Button" slices.
+local DROPDOWN_ART = "Silver%-Button"
+local CARET_ART = "ChatFrameExpandArrow"
+local CARET_SIZE = 14
 
 -- The caret is retextured after HandleButton, not before: HandleButton strips
 -- the pill, and a caret replaced ahead of that gets cleared straight back off.
@@ -191,7 +204,7 @@ function Skin:Dropdown(dropdown, menu)
 	if not dropdown or dropdown.CoASkinned then return end
 	dropdown.CoASkinned = true
 
-	StripDropdownArt(dropdown)
+	self:StripArtByFile(dropdown, DROPDOWN_ART)
 	S:HandleButton(dropdown)
 	SkinDropdownCaret(dropdown)
 
