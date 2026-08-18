@@ -195,6 +195,10 @@ function Skin:Button(button, ...)
 
 	S:HandleButton(button, ...)
 
+	-- Unguarded: a pass over a handful of regions is cheap, and re-running it
+	-- catches a region added to the button after the first skin pass.
+	self:StripHighlightArt(button)
+
 	-- Guarded separately from HandleButton's own isSkinned flag: these frames
 	-- re-run their skin pass on every show, and HookScript stacks handlers
 	-- rather than replacing them, so an unguarded re-hook adds another copy
@@ -230,12 +234,45 @@ function Skin:StripArtByFile(frame, pattern)
 	end
 end
 
+-- S:HandleButton clears the button's own Normal/Highlight/Pushed/Disabled
+-- textures and the named Left/Middle/Right pieces, and nothing else -- so a
+-- native highlight drawn as a plain region of the button survives it and lights
+-- up under the cursor against the flat ElvUI backdrop. That was the wardrobe
+-- Cancel button's red glow, and clearing it by file there fixed exactly that
+-- one button: probing the layer across everything the plugin skins turned up
+-- the Save outfit button wearing the same red file, and Disable transmog and
+-- Disable spell visuals wearing the dialog-box glow, none of which any
+-- clear-by-file call site was ever going to reach.
+--
+-- The whole layer goes rather than named files, because on these frames it only
+-- ever carries native hover art. Every button probed has exactly one HIGHLIGHT
+-- region, and on the ones that already looked right it is blank -- so there is
+-- nothing else living there to lose. ElvUI's own hover treatment isn't caught:
+-- it's the backdrop border swap HandleButton hooks, and a backdrop is drawn
+-- through SetBackdrop plus two child border frames, not as a region of the
+-- button at all.
+--
+-- Noop'd rather than only cleared, as in StripArtByFile: a state change that
+-- re-arts the button would otherwise bring the glow straight back.
+function Skin:StripHighlightArt(frame)
+	if not frame then return end
+
+	for i = 1, frame:GetNumRegions() do
+		local region = select(i, frame:GetRegions())
+
+		if region:GetObjectType() == "Texture" and region:GetDrawLayer() == "HIGHLIGHT" then
+			region:SetTexture(nil)
+			region.SetTexture = E.noop
+		end
+	end
+end
+
 -- The pill behind the talent frame's Activate button and the wardrobe's Apply
 -- and Cancel buttons. Two files rather than one: "128GoldRedButton" carries the
 -- green and grey variants as tex coords, and Cancel alone is drawn from
--- "128RedButton" (probed) -- including its HIGHLIGHT region, which is what left
--- a red glow under the cursor while only the gold file was being cleared. The
--- shared suffix matches both, and nothing else on these frames uses either.
+-- "128RedButton" (probed). The shared suffix matches both, and nothing else on
+-- these frames uses either. Only the pill itself is this pattern's job now --
+-- the hover art on both files goes with the rest of the HIGHLIGHT layer.
 Skin.RedButtonArt = "RedButton"
 
 -- The dropdown pills on the vanity and wardrobe frames are the same widget:
