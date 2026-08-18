@@ -13,23 +13,50 @@ local function SkinActionButtons()
 	Skin:Button(_G[FRAME_NAME.."DisableSpellVisualsButton"])
 end
 
--- Apply and Cancel only exist while a transmog change is pending, which is why
--- they were missed for so long -- but they exist from the start rather than
--- being created on the first change (probed: both are Buttons, hidden, with
--- nothing pending), so the normal skin pass reaches them.
+-- Apply, Cancel and Clear invalid slots only exist while a transmog change is
+-- pending, which is why they were missed for so long -- but they exist from the
+-- start rather than being created on the first change (probed: they are
+-- Buttons, hidden, with nothing pending), so the normal skin pass reaches them.
 --
 -- Same widget as the talent frame's Activate button: the pill is drawn across
 -- plain regions, with no Normal/Pushed texture for HandleButton to clear
--- (probed: both come back nil). Apply takes the green variant of the gold
--- atlas, Cancel is drawn from the red file instead -- Skin.RedButtonArt matches
--- both, and Cancel's HIGHLIGHT region goes with the rest of its art.
+-- (probed: they come back nil). Apply and Clear invalid slots take the green
+-- variant of the gold atlas, Cancel is drawn from the red file instead --
+-- Skin.RedButtonArt matches both files, and Cancel's HIGHLIGHT region goes with
+-- the rest of its art.
 --
--- The labels don't carry the atlas's green/red split over: the two buttons sit
--- side by side and read apart by their text, and they take the same yellow
--- every other templated button on these frames uses -- the talent frame's live
--- Activate label included -- so a pending change doesn't get its own colour
--- scheme.
+-- The labels don't carry the atlas's green/red split over: the buttons sit in a
+-- row and read apart by their text, and they take the same yellow every other
+-- templated button on these frames uses -- the talent frame's live Activate
+-- label included -- so a pending change doesn't get its own colour scheme. The
+-- grey is the disabled half of that same pair.
 local LABEL_COLOR = {1, 0.82, 0}
+local DISABLED_LABEL_COLOR = {0.55, 0.55, 0.55}
+
+-- Apply is disabled for as long as an invalid slot is pending, and with the
+-- pill gone nothing else says so -- the ElvUI panel is drawn the same either
+-- way. The label is greyed instead, exactly as the talent frame does it for the
+-- active spec's Activate button.
+--
+-- Driven from the button's update because there's no event for the state
+-- change: clearing the invalid slots enables Apply on the spot. The cached
+-- state is what keeps that cheap -- the colours are only written when the state
+-- actually flips.
+local function UpdatePendingButtonState(button)
+	local enabled = Skin:IsEnabled(button)
+
+	if enabled == button.CoAPendingEnabled then return end
+	button.CoAPendingEnabled = enabled
+
+	-- Clearing the invalid slots enables Apply under the very cursor that just
+	-- clicked Clear invalid slots, so its hover border would stay dark until
+	-- the pointer moved off. This update already watches the state, so it
+	-- carries the border too.
+	Skin:RefreshButtonBorder(button)
+
+	local text = button.GetFontString and button:GetFontString()
+	if text then text:SetTextColor(unpack(enabled and LABEL_COLOR or DISABLED_LABEL_COLOR)) end
+end
 
 -- The strip runs on every pass rather than once behind the skinned guard: the
 -- art is only there to be cleared once a change is pending, and nothing fires
@@ -41,24 +68,34 @@ local function SkinPendingButton(name)
 
 	Skin:StripArtByFile(button, Skin.RedButtonArt)
 
-	if button.CoASkinned then return end
-	button.CoASkinned = true
+	if not button.CoASkinned then
+		button.CoASkinned = true
 
-	-- Stripped before templating: HandleButton adds its backdrop as regions of
-	-- this same button, so a strip afterwards takes the backdrop with the pill.
-	Skin:Button(button)
+		-- Stripped before templating: HandleButton adds its backdrop as regions
+		-- of this same button, so a strip afterwards takes the backdrop with the
+		-- pill.
+		Skin:Button(button)
 
-	local text = button.GetFontString and button:GetFontString()
-	if text then text:SetTextColor(unpack(LABEL_COLOR)) end
+		button:HookScript("OnShow", function(self)
+			Skin:StripArtByFile(self, Skin.RedButtonArt)
+		end)
 
-	button:HookScript("OnShow", function(self)
-		Skin:StripArtByFile(self, Skin.RedButtonArt)
-	end)
+		button:HookScript("OnUpdate", UpdatePendingButtonState)
+	end
+
+	UpdatePendingButtonState(button)
 end
 
+local PENDING_BUTTONS = {
+	"PlayerModelApplyButton",
+	"PlayerModelCancelButton",
+	"PlayerModelClearInvalidButton",
+}
+
 local function SkinPendingButtons()
-	SkinPendingButton(FRAME_NAME.."PlayerModelApplyButton")
-	SkinPendingButton(FRAME_NAME.."PlayerModelCancelButton")
+	for _, suffix in ipairs(PENDING_BUTTONS) do
+		SkinPendingButton(FRAME_NAME..suffix)
+	end
 end
 
 local function SkinSearchBox()
