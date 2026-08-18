@@ -4,6 +4,7 @@ ElvUI plugin that hides and skins the custom CoA (3.3.5) frames not covered by s
 
 ## Implemented
 
+- Character advancement, vanity, wardrobe frames: skin, scale
 - Class resource frames: hiding
 - Extra action button frame: skin, anchor, size
 - Instance swap frame: skin, anchor, font settings
