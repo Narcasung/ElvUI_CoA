@@ -17,8 +17,8 @@ local FRAME_NAME = "StoreCollectionFrame"
 -- Highlight textures), confirmed by probe -- S:HandleButton's own texture
 -- clearing handles these directly, no manual stripping needed.
 local function SkinActionButtons()
-	S:HandleButton(_G[FRAME_NAME.."ActivateStoreButton"])
-	S:HandleButton(_G[FRAME_NAME.."BuyStoreButton"])
+	Skin:Button(_G[FRAME_NAME.."ActivateStoreButton"])
+	Skin:Button(_G[FRAME_NAME.."BuyStoreButton"])
 end
 
 local function SkinSearchBox()

@@ -8,9 +8,9 @@ local FRAME_NAME = "AppearanceWardrobeFrame"
 -- Standard UIPanelButtonTemplate art, same as Vanity's action buttons --
 -- S:HandleButton's own texture clearing handles these directly.
 local function SkinActionButtons()
-	S:HandleButton(_G[FRAME_NAME.."PlayerModelSaveOutfitButton"])
-	S:HandleButton(_G[FRAME_NAME.."DisableTransmogButton"])
-	S:HandleButton(_G[FRAME_NAME.."DisableSpellVisualsButton"])
+	Skin:Button(_G[FRAME_NAME.."PlayerModelSaveOutfitButton"])
+	Skin:Button(_G[FRAME_NAME.."DisableTransmogButton"])
+	Skin:Button(_G[FRAME_NAME.."DisableSpellVisualsButton"])
 end
 
 -- Apply and Cancel only exist while a transmog change is pending, which is why
@@ -46,7 +46,7 @@ local function SkinPendingButton(name)
 
 	-- Stripped before templating: HandleButton adds its backdrop as regions of
 	-- this same button, so a strip afterwards takes the backdrop with the pill.
-	S:HandleButton(button)
+	Skin:Button(button)
 
 	local text = button.GetFontString and button:GetFontString()
 	if text then text:SetTextColor(unpack(LABEL_COLOR)) end

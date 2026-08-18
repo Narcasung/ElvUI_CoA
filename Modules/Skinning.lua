@@ -138,6 +138,74 @@ function Skin:HideArt(frame)
 	frame:Hide()
 end
 
+-- Buttons ---------------------------------------------------------------------
+--
+-- IsEnabled hands back 0 and 1 on this client rather than false and true
+-- (probed), and 0 is truthy in Lua, so every enabled check has to normalise
+-- what it gets back before comparing it.
+function Skin:IsEnabled(button)
+	local state = button.IsEnabled and button:IsEnabled()
+
+	return state ~= nil and state ~= false and state ~= 0
+end
+
+-- The target is resolved the way ElvUI's own SetModifiedBackdrop and
+-- SetOriginalBackdrop resolve it -- the backdrop when the button has one, the
+-- button itself otherwise -- or the colour lands on something that isn't the
+-- object drawing the border.
+local function SetButtonBorder(button, lit)
+	local backdrop = button.backdrop or button
+	if not backdrop.SetBackdropBorderColor then return end
+
+	backdrop:SetBackdropBorderColor(unpack(lit and E.media.rgbvaluecolor or E.media.bordercolor))
+end
+
+-- S:HandleButton ends with an unconditional pair of OnEnter/OnLeave hooks that
+-- swap the border to the value colour and back, and neither of them looks at
+-- IsEnabled. A disabled button still fires both scripts on this client, so a
+-- dead button lights up under the cursor and reads as clickable -- the greyed
+-- Activate button, Save changes with nothing pending, Purchase with nothing
+-- selected. HookScript can't be undone, but handlers fire in registration
+-- order, so a hook registered after HandleButton runs last and has the final
+-- say on the colour.
+--
+-- This one deliberately doesn't consult IsMouseOver: OnEnter can fire a pixel
+-- before IsMouseOver turns true (ElvUI's own aura code pads around the same
+-- quirk), and reading it here would drop the highlight off a live button.
+local function OnButtonEnter(button)
+	if Skin:IsEnabled(button) then return end
+
+	SetButtonBorder(button, false)
+end
+
+-- For a button that can be disabled while the cursor is already on it: OnEnter
+-- has been and gone by then, so nothing corrects the border until the pointer
+-- leaves. Only worth wiring up where something already watches the button's
+-- state -- it does not justify an OnUpdate of its own.
+function Skin:RefreshButtonBorder(button)
+	SetButtonBorder(button, self:IsEnabled(button) and button:IsMouseOver())
+end
+
+-- Every S:HandleButton call site in the plugin goes through here, so the
+-- disabled-hover correction is inherited rather than repeated per module. The
+-- extra arguments are HandleButton's own (strip, isDeclineButton,
+-- useCreateBackdrop, noSetTemplate) and are passed straight through.
+function Skin:Button(button, ...)
+	if not button then return end
+
+	S:HandleButton(button, ...)
+
+	-- Guarded separately from HandleButton's own isSkinned flag: these frames
+	-- re-run their skin pass on every show, and HookScript stacks handlers
+	-- rather than replacing them, so an unguarded re-hook adds another copy
+	-- per show for the life of the session.
+	if not button.CoAButtonSkinned then
+		button.CoAButtonSkinned = true
+
+		button:HookScript("OnEnter", OnButtonEnter)
+	end
+end
+
 -- Several of these controls draw their art as anonymous regions of one atlas
 -- file rather than through the named Left/Middle/Right fields or the Normal/
 -- Pushed/Disabled set S:HandleButton knows how to clear, so its own clearing
@@ -205,7 +273,7 @@ function Skin:Dropdown(dropdown, menu)
 	dropdown.CoASkinned = true
 
 	self:StripArtByFile(dropdown, DROPDOWN_ART)
-	S:HandleButton(dropdown)
+	self:Button(dropdown)
 	SkinDropdownCaret(dropdown)
 
 	self:Panel(menu)

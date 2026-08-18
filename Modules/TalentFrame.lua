@@ -56,7 +56,7 @@ function SkinChildren(frame, depth)
 				-- "...MenuClose", and it was coming out of the walk as an
 				-- ordinary templated square with the X stripped off it.
 				if not (name and name:find("Close")) then
-					S:HandleButton(child)
+					Skin:Button(child)
 				end
 			elseif objType == "Frame" then
 				if IsDropDown(child, name) then
@@ -353,16 +353,20 @@ local ACTIVATE_DISABLED_COLOR = {0.55, 0.55, 0.55}
 -- says so -- the ElvUI panel is drawn the same either way. The label is greyed
 -- instead, which is how ElvUI marks a dead button everywhere else.
 --
--- IsEnabled hands back 0 and 1 on this client rather than false and true
--- (probed), and 0 is truthy in Lua, so it's normalised before it's compared
--- against the cached value. Compared rather than written blind because this
--- runs from the button's update: there's no event for a spec becoming active.
+-- The enabled state is compared against the cached one rather than written
+-- blind because this runs from the button's update: there's no event for a spec
+-- becoming active. Skin:IsEnabled does the 0/1-to-boolean normalisation this
+-- client needs (see Skinning.lua).
 local function UpdateActivateState(button)
-	local state = button:IsEnabled()
-	local enabled = state ~= nil and state ~= false and state ~= 0
+	local enabled = Skin:IsEnabled(button)
 
 	if enabled == button.CoAActivateEnabled then return end
 	button.CoAActivateEnabled = enabled
+
+	-- Activating a spec disables this button under the very cursor that just
+	-- clicked it, so its hover border would stay lit until the pointer moved
+	-- off. This update already watches the state, so it carries the border too.
+	Skin:RefreshButtonBorder(button)
 
 	local text = ActivateLabel(button)
 	if not text then return end
@@ -380,7 +384,7 @@ local function SkinActivateButton(button)
 		button.CoASkinned = true
 
 		Skin:StripArtByFile(button, Skin.RedButtonArt)
-		S:HandleButton(button)
+		Skin:Button(button)
 
 		button:HookScript("OnUpdate", UpdateActivateState)
 	end
@@ -601,7 +605,7 @@ local function SkinBottomBar()
 		-- stopped at the arrow, and the dead space to its right is taken out
 		-- of the hit rect so it can't swallow clicks meant for those icons.
 		if dropdown and arrow then
-			S:HandleButton(dropdown, nil, nil, true)
+			Skin:Button(dropdown, nil, nil, true)
 
 			if dropdown.backdrop then
 				dropdown.backdrop:ClearAllPoints()
@@ -719,7 +723,7 @@ local function SkinSpecChoices()
 		local cardName = SPEC_CHOICE:format(i)
 		if not _G[cardName] then break end
 
-		S:HandleButton(_G[cardName.."SelectButton"], true)
+		Skin:Button(_G[cardName.."SelectButton"], true)
 	end
 end
 
