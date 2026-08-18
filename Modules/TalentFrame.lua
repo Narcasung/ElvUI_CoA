@@ -311,6 +311,121 @@ function SkinMenuRow(row)
 	UpdateRowSelection(row)
 end
 
+-- The Activate button inside an expanded specialization row draws its pill from
+-- a single atlas across three BACKGROUND regions plus a HIGHLIGHT one, and
+-- switches between the green and the grey variant by tex coord. There are no
+-- Normal/Pushed/Disabled textures for HandleButton to clear (probed: both come
+-- back nil, and every region's vertex colour is white in either state), so the
+-- art is cleared by file the way the dropdown pills are, and the enabled/
+-- disabled distinction the atlas was carrying has to be re-created on the label.
+local ACTIVATE_ART = "128GoldRedButton"
+
+-- SetTexture is noop'd per region for the same reason as the dropdown pills:
+-- whatever swaps the tex coord on a state change is free to re-art the region
+-- as well, and a cleared texture would come straight back.
+local function StripActivateArt(button)
+	for i = 1, button:GetNumRegions() do
+		local region = select(i, button:GetRegions())
+		local texture = region.GetTexture and region:GetTexture()
+
+		if texture and tostring(texture):find(ACTIVATE_ART) then
+			region:SetTexture(nil)
+			region.SetTexture = E.noop
+		end
+	end
+end
+
+-- GetFontString covers the templated case; the scan is for a label that was
+-- added as a plain region rather than set as the button's own font string.
+local function ActivateLabel(button)
+	if button.CoALabel then return button.CoALabel end
+
+	local text = button.GetFontString and button:GetFontString()
+
+	if not text then
+		for i = 1, button:GetNumRegions() do
+			local region = select(i, button:GetRegions())
+
+			if region:GetObjectType() == "FontString" then
+				text = region
+				break
+			end
+		end
+	end
+
+	button.CoALabel = text
+
+	return text
+end
+
+-- Yellow live, grey dead: the same pair ElvUI's own templated buttons use, so
+-- these read as buttons rather than as labels on a panel.
+local ACTIVATE_COLOR = {1, 0.82, 0}
+local ACTIVATE_DISABLED_COLOR = {0.55, 0.55, 0.55}
+
+-- The active spec's button is disabled, and with the pill gone nothing else
+-- says so -- the ElvUI panel is drawn the same either way. The label is greyed
+-- instead, which is how ElvUI marks a dead button everywhere else.
+--
+-- IsEnabled hands back 0 and 1 on this client rather than false and true
+-- (probed), and 0 is truthy in Lua, so it's normalised before it's compared
+-- against the cached value. Compared rather than written blind because this
+-- runs from the button's update: there's no event for a spec becoming active.
+local function UpdateActivateState(button)
+	local state = button:IsEnabled()
+	local enabled = state ~= nil and state ~= false and state ~= 0
+
+	if enabled == button.CoAActivateEnabled then return end
+	button.CoAActivateEnabled = enabled
+
+	local text = ActivateLabel(button)
+	if not text then return end
+
+	text:SetTextColor(unpack(enabled and ACTIVATE_COLOR or ACTIVATE_DISABLED_COLOR))
+end
+
+-- Stripped before templating, as with the dropdown pills: HandleButton adds its
+-- backdrop as regions of this same button, so a strip afterwards takes the
+-- backdrop with the pill.
+local function SkinActivateButton(button)
+	if not button then return end
+
+	if not button.CoASkinned then
+		button.CoASkinned = true
+
+		StripActivateArt(button)
+		S:HandleButton(button)
+
+		button:HookScript("OnUpdate", UpdateActivateState)
+	end
+
+	UpdateActivateState(button)
+end
+
+-- Unlike the row's icon these are named without a literal dot
+-- ("Button1ExpandedContent", "...ExpandedContentActivateButton"), read off the
+-- frame stack.
+--
+-- The expanded content exists from the moment the menu is built rather than
+-- being created when its row is expanded (probed: present, hidden, before any
+-- row had been opened), so it's picked up with the rest of the row. The show
+-- hook is there for a row whose content is filled in later than this first pass.
+local function SkinRowExpansion(rowName)
+	local content = _G[rowName.."ExpandedContent"]
+	if not content then return end
+
+	local buttonName = rowName.."ExpandedContentActivateButton"
+
+	SkinActivateButton(_G[buttonName])
+
+	if content.CoASkinned then return end
+	content.CoASkinned = true
+
+	content:HookScript("OnShow", function()
+		SkinActivateButton(_G[buttonName])
+	end)
+end
+
 -- These children are named with a literal dot ("Button1.SpecIcon"), so they
 -- only come out of _G by string key, never as plain identifiers.
 local function SkinMenuRows(listName)
@@ -321,6 +436,7 @@ local function SkinMenuRows(listName)
 
 		SkinMenuRow(row)
 		SkinMenuRowIcon(_G[rowName..".SpecIcon"])
+		SkinRowExpansion(rowName)
 	end
 end
 
