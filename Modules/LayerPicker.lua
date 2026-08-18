@@ -19,8 +19,17 @@ local function UpdateFont(button)
 	)
 end
 
+local function SyncHolderSize(button)
+	local holder = _G["CoA_LayerPickerHolder"]
+	button = button or _G[BUTTON_NAME]
+	if holder and button then
+		holder:Size(button:GetSize())
+	end
+end
+
 function CoA:UpdateInstanceButtonFont()
 	UpdateFont()
+	SyncHolderSize()
 end
 
 -- Hooked at file scope, so unlike the rest of the skin it stays live even when
@@ -69,24 +78,26 @@ local function DisableDrag(button)
 	end)
 end
 
-local function SetupMover(button)
-	if CoA.layerPickerMoverCreated then return true end
-
-	local width, height = button:GetSize()
-	if width == 0 or height == 0 then return false end
-
-	local left, bottom = button:GetLeft(), button:GetBottom()
-	if not left or not bottom then return false end
-
+-- Created eagerly (independent of the native LayerPickerFrame ever showing
+-- up) so the mover always appears in Toggle Anchors. The default point below
+-- is only used until the player drags it once; after that E:CreateMover
+-- restores the saved position from E.db.movers.
+local function CreateMoverHolder()
+	if CoA.layerPickerMoverCreated then return end
 	CoA.layerPickerMoverCreated = true
 
 	local holder = CreateFrame("Frame", "CoA_LayerPickerHolder", E.UIParent)
-	holder:Size(width, height)
-	holder:Point("BOTTOMLEFT", E.UIParent, "BOTTOMLEFT", left, bottom)
+	holder:Size(MIN_WIDTH, MIN_HEIGHT)
+	holder:Point("TOPLEFT", E.UIParent, "TOPLEFT", 250, -250)
 
-	E:CreateMover(holder, "CoA_LayerPickerMover", "Instance", nil, nil, nil, "ALL,COA", nil, "CoA,skin,instance")
+	E:CreateMover(holder, "CoA_LayerPickerMover", "Instance", nil, nil, nil, "ALL,COA", nil, "CoA,skins,instanceSwap")
 	holder:SetAllPoints(_G["CoA_LayerPickerMover"])
 	_G["CoA_LayerPickerMover"]:SetFrameStrata("FULLSCREEN")
+end
+
+local function AnchorButton(button)
+	local holder = _G["CoA_LayerPickerHolder"]
+	if not holder then return end
 
 	local function Anchor()
 		button:ClearAllPoints()
@@ -101,8 +112,6 @@ local function SetupMover(button)
 	else
 		Anchor()
 	end
-
-	return true
 end
 
 local function SkinButton(button)
@@ -122,13 +131,17 @@ local function TryHook()
 	if button then
 		DisableDrag(button)
 		SkinButton(button)
-		return SetupMover(button)
+		SyncHolderSize(button)
+		AnchorButton(button)
+		return true
 	end
 
 	return false
 end
 
 function CoA:InitializeLayerPicker()
+	CreateMoverHolder()
+
 	if TryHook() then return end
 
 	self.layerPickerTimer = self:ScheduleRepeatingTimer(function()

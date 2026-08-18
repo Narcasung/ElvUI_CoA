@@ -1,12 +1,17 @@
 local E, L, V, P, G = unpack(ElvUI)
 local CoA = E:GetModule("CoA")
 
+-- defaultY staggers the movers' first-run default position (LEFT of screen,
+-- spaced vertically) so they don't stack on top of each other before the
+-- player has ever dragged them.
 local FRAMES = {
-	{name = "CoAResourceSegmentBar", moverText = "Resource Segment Bar", hideKey = "hideResourceSegmentBar"},
-	{name = "CoAResourceOrb", moverText = "Resource Orb", hideKey = "hideResourceOrb"},
-	{name = "CoAResourceBar", moverText = "Resource Bar", hideKey = "hideResourceBar"},
-	{name = "CoAMultiCastActionBarFrame", moverText = "Multi Cast Action Bar", hideKey = "hideMultiCastActionBar"},
+	{name = "CoAResourceSegmentBar", moverText = "Resource Segment Bar", hideKey = "hideResourceSegmentBar", defaultY = 40},
+	{name = "CoAResourceOrb", moverText = "Resource Orb", hideKey = "hideResourceOrb", defaultY = 100},
+	{name = "CoAResourceBar", moverText = "Resource Bar", hideKey = "hideResourceBar", defaultY = 160},
+	{name = "CoAMultiCastActionBarFrame", moverText = "Multi Cast Action Bar", hideKey = "hideMultiCastActionBar", defaultY = 220},
 }
+
+local DEFAULT_WIDTH, DEFAULT_HEIGHT = 150, 30
 
 local FRAME_NAMES = {}
 for _, def in ipairs(FRAMES) do
@@ -179,30 +184,42 @@ local function LockPosition(frame, holder)
 	end)
 end
 
-local function SetupMover(frame, name, moverText)
-	if frame.CoAMoverCreated then return true end
+-- Created eagerly (independent of the native frame ever showing up -- several
+-- of these are class-specific and may never appear for a given character) so
+-- every mover always appears in Toggle Anchors. The default point is only
+-- used until the player drags it once; after that E:CreateMover restores the
+-- saved position from E.db.movers.
+local function CreateMoverHolder(def)
+	if CoA.classResourceMoversCreated and CoA.classResourceMoversCreated[def.name] then return end
+	CoA.classResourceMoversCreated = CoA.classResourceMoversCreated or {}
+	CoA.classResourceMoversCreated[def.name] = true
+
+	local holder = CreateFrame("Frame", "CoA_"..def.name.."Holder", E.UIParent)
+	holder:Size(DEFAULT_WIDTH, DEFAULT_HEIGHT)
+	holder:Point("LEFT", E.UIParent, "LEFT", 150, def.defaultY)
+
+	E:CreateMover(holder, "CoA_"..def.name.."Mover", def.moverText, nil, nil, nil, "ALL,COA", nil, "CoA,classResources")
+	holder:SetAllPoints(_G["CoA_"..def.name.."Mover"])
+end
+
+local function SyncHolderSize(frame, name)
+	local holder = _G["CoA_"..name.."Holder"]
+	if not holder then return end
 
 	local width, height = frame:GetSize()
-	if width == 0 or height == 0 then return false end
+	if width > 0 and height > 0 then
+		holder:Size(width, height)
+	end
+end
 
-	local left, bottom = frame:GetLeft(), frame:GetBottom()
-	if not left or not bottom then return false end
-
-	frame.CoAMoverCreated = true
-
-	local holder = CreateFrame("Frame", "CoA_"..name.."Holder", E.UIParent)
-	holder:Size(width, height)
-	holder:Point("BOTTOMLEFT", E.UIParent, "BOTTOMLEFT", left, bottom)
-
-	E:CreateMover(holder, "CoA_"..name.."Mover", moverText, nil, nil, nil, "ALL,COA", nil, "CoA,skin,classResources")
-	holder:SetAllPoints(_G["CoA_"..name.."Mover"])
+local function AnchorFrame(frame, name)
+	local holder = _G["CoA_"..name.."Holder"]
+	if not holder then return end
 
 	QueueAnchor(function()
 		AnchorToHolder(frame, holder)
 		LockPosition(frame, holder)
 	end)
-
-	return true
 end
 
 -- The server never Show()s a frame the current class doesn't use, so its
@@ -259,12 +276,10 @@ local function TryHookAll()
 				DisableDrag(frame)
 				SetupVisibility(frame, def.hideKey)
 				FixTooltip(frame)
+				SyncHolderSize(frame, def.name)
+				AnchorFrame(frame, def.name)
 
-				if SetupMover(frame, def.name, def.moverText) then
-					hooked[def.name] = true
-				else
-					allHooked = false
-				end
+				hooked[def.name] = true
 			else
 				allHooked = false
 			end
@@ -275,6 +290,10 @@ local function TryHookAll()
 end
 
 function CoA:InitializeClassResources()
+	for _, def in ipairs(FRAMES) do
+		CreateMoverHolder(def)
+	end
+
 	if TryHookAll() then return end
 
 	self.classResourcesTimer = self:ScheduleRepeatingTimer(function()

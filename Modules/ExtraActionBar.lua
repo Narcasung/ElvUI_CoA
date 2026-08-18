@@ -53,6 +53,11 @@ end
 
 function CoA:UpdateExtraActionButtonSize()
 	UpdateSize()
+
+	local holder = _G["CoA_ExtraActionBarHolder"]
+	if holder then
+		holder:Size(CoA.db.profile.extraActionButtonSize or 52)
+	end
 end
 
 local function UpdateHotkeyText(button)
@@ -157,26 +162,34 @@ local function SkinButton(button, container)
 	SkinGlow(button, name)
 end
 
-local function SetupMover(container, button)
-	if CoA.extraActionBarMoverCreated then return true end
-
-	local width, height = button:GetSize()
-	if width == 0 or height == 0 then return false end
-
-	local left, bottom = button:GetLeft(), button:GetBottom()
-	if not left or not bottom then return false end
-
+-- Created eagerly (independent of the native ExtraActionBar ever showing up)
+-- so the mover always appears in Toggle Anchors. The default point below is
+-- only used until the player drags it once; after that E:CreateMover restores
+-- the saved position from E.db.movers.
+local function CreateMoverHolder()
+	if CoA.extraActionBarMoverCreated then return end
 	CoA.extraActionBarMoverCreated = true
+
+	local size = CoA.db.profile.extraActionButtonSize or 52
+	local holder = CreateFrame("Frame", "CoA_ExtraActionBarHolder", E.UIParent)
+	holder:Size(size, size)
+	holder:Point("BOTTOM", E.UIParent, "BOTTOM", 0, 260)
+
+	E:CreateMover(holder, "CoA_ExtraActionBarMover", "Extra Action Bar", nil, nil, nil, "ALL,COA", nil, "CoA,skins,extraActionButton")
+	holder:SetAllPoints(_G["CoA_ExtraActionBarMover"])
+end
+
+local function SetupContainer(container)
+	if container.CoAContainerSetup then return end
+	container.CoAContainerSetup = true
 
 	container:StripTextures(true)
 	container:EnableMouse(false)
+end
 
-	local holder = CreateFrame("Frame", "CoA_ExtraActionBarHolder", E.UIParent)
-	holder:Size(width, height)
-	holder:Point("BOTTOMLEFT", E.UIParent, "BOTTOMLEFT", left, bottom)
-
-	E:CreateMover(holder, "CoA_ExtraActionBarMover", "Extra Action Bar", nil, nil, nil, "ALL,COA", nil, "CoA,skin,extraActionBar")
-	holder:SetAllPoints(_G["CoA_ExtraActionBarMover"])
+local function AnchorContainer(container)
+	local holder = _G["CoA_ExtraActionBarHolder"]
+	if not holder then return end
 
 	local function Anchor()
 		container:ClearAllPoints()
@@ -191,8 +204,6 @@ local function SetupMover(container, button)
 	else
 		Anchor()
 	end
-
-	return true
 end
 
 local function TryHook()
@@ -201,13 +212,17 @@ local function TryHook()
 
 	if container and button then
 		SkinButton(button, container)
-		return SetupMover(container, button)
+		SetupContainer(container)
+		AnchorContainer(container)
+		return true
 	end
 
 	return false
 end
 
 function CoA:InitializeExtraActionBar()
+	CreateMoverHolder()
+
 	if TryHook() then return end
 
 	self.extraActionBarTimer = self:ScheduleRepeatingTimer(function()
