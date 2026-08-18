@@ -32,9 +32,7 @@ local defaults = {
 		instanceButtonFontSize = 12,
 		instanceButtonFontOutline = "OUTLINE",
 		dispelHighlightOnlyMine = false,
-		hasBlightAntidote = false,
-		hasDevourCurse = false,
-		hasBurnImpurities = false,
+		dispelHighlightDetectTalents = true,
 		hideResourceSegmentBar = false,
 		hideResourceOrb = false,
 		hideResourceBar = false,
@@ -405,55 +403,20 @@ local function getOptions()
 							end
 						end,
 					},
-					talents = {
+					detectTalents = {
 						order = 3,
-						type = "group",
-						inline = true,
-						name = "Talents",
-						args = {
-							hasBlightAntidote = {
-								order = 1,
-								type = "toggle",
-								name = string.format("Blight Antidote (%s)", LOCALIZED_CLASS_NAMES_MALE.PROPHET),
-								desc = "Grants Curse dispel.",
-								get = function() return CoA.db.profile.hasBlightAntidote end,
-								set = function(_, value)
-									CoA.db.profile.hasBlightAntidote = value
+						type = "toggle",
+						name = "Detect Talents",
+						desc = "Read the talents that grant extra dispel types from your current build. Turn this off to fall back to what your class can dispel without any talent.",
+						disabled = function() return not CoA.db.profile.dispelHighlightOnlyMine end,
+						get = function() return CoA.db.profile.dispelHighlightDetectTalents end,
+						set = function(_, value)
+							CoA.db.profile.dispelHighlightDetectTalents = value
 
-									if CoA.UpdateDispelHighlight then
-										CoA:UpdateDispelHighlight()
-									end
-								end,
-							},
-							hasDevourCurse = {
-								order = 2,
-								type = "toggle",
-								name = string.format("Devour Curse (%s)", LOCALIZED_CLASS_NAMES_MALE.CULTIST),
-								desc = "Grants Curse dispel.",
-								get = function() return CoA.db.profile.hasDevourCurse end,
-								set = function(_, value)
-									CoA.db.profile.hasDevourCurse = value
-
-									if CoA.UpdateDispelHighlight then
-										CoA:UpdateDispelHighlight()
-									end
-								end,
-							},
-							hasBurnImpurities = {
-								order = 3,
-								type = "toggle",
-								name = string.format("Burn Impurities (%s)", LOCALIZED_CLASS_NAMES_MALE.PYROMANCER),
-								desc = "Grants Magic, Disease, and Bleed dispel.",
-								get = function() return CoA.db.profile.hasBurnImpurities end,
-								set = function(_, value)
-									CoA.db.profile.hasBurnImpurities = value
-
-									if CoA.UpdateDispelHighlight then
-										CoA:UpdateDispelHighlight()
-									end
-								end,
-							},
-						},
+							if CoA.UpdateDispelHighlight then
+								CoA:UpdateDispelHighlight()
+							end
+						end,
 					},
 				},
 			},
