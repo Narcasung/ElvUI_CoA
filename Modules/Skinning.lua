@@ -428,6 +428,71 @@ local function ThumbOnMouseUp(thumb)
 	SetThumbColor(thumb, SCROLL_THUMB_ALPHA)
 end
 
+-- The arrows re-art themselves the same way the track and thumb do, and one
+-- pass can't hold against it: S:HandleNextPrevButton guards on its own
+-- isSkinned flag, so calling it a second time does nothing at all. What comes
+-- back isn't the ElvUI arrow being overwritten either -- that texture is still
+-- in place underneath (probed: the native "scrollbarproportional" region shown
+-- alongside ArrowUp). It's the button's own art, which StripTextures only hid,
+-- and the scroll frame shows it again whenever it recalculates.
+--
+-- So the native art is re-hidden by file from OnUpdate, the same answer the
+-- track, the thumb and the tab art all needed and for the same reason: nothing
+-- fires when it happens. The three state textures are captured and their
+-- setters noop'd as well -- still worth closing off, since whatever refreshes
+-- these is free to swap in a fresh texture object and orphan the three.
+--
+-- Matched by file rather than as "any region that isn't one of ours": ElvUI's
+-- own panel and border pieces are regions of the button too, so hiding
+-- everything unrecognised would take the ElvUI square with it. Compared
+-- case-insensitively -- the client hands paths back from GetTexture in whatever
+-- case it stored them, not the case they were set in.
+local ARROW_TEXTURE = E.Media.Textures.ArrowUp:lower()
+local NATIVE_SCROLL_ART = "scrollbar"
+
+local function RestoreArrow(button)
+	for i = 1, button:GetNumRegions() do
+		local region = select(i, button:GetRegions())
+		local texture = region.GetTexture and region:GetTexture()
+
+		if texture and tostring(texture):lower():find(NATIVE_SCROLL_ART) and region:IsShown() then
+			region:Hide()
+		end
+	end
+
+	for _, texture in ipairs(button.CoAArrowTextures) do
+		local current = texture:GetTexture()
+
+		if not current or tostring(current):lower() ~= ARROW_TEXTURE then
+			texture:SetTexture(E.Media.Textures.ArrowUp)
+			texture:SetInside(button)
+			texture:SetTexCoord(0, 1, 0, 1)
+			texture:SetRotation(S.ArrowRotation[button.CoAArrowDirection])
+		end
+	end
+end
+
+function Skin:ScrollArrow(button, direction)
+	if not button or button.CoAArrowSkinned then return end
+	button.CoAArrowSkinned = true
+
+	self:NextPrevButton(button, direction)
+
+	button.CoAArrowDirection = direction
+	button.CoAArrowTextures = {
+		button:GetNormalTexture(),
+		button:GetPushedTexture(),
+		button:GetDisabledTexture(),
+	}
+
+	button.SetNormalTexture = E.noop
+	button.SetPushedTexture = E.noop
+	button.SetDisabledTexture = E.noop
+	button.SetHighlightTexture = E.noop
+
+	button:HookScript("OnUpdate", RestoreArrow)
+end
+
 function Skin:ScrollBar(bar, thumb, up, down)
 	if not bar or bar.CoASkinned then return end
 	bar.CoASkinned = true
@@ -466,13 +531,13 @@ function Skin:ScrollBar(bar, thumb, up, down)
 	-- lines up with the track, and a second point left in place would stretch the
 	-- button between the two.
 	if up then
-		self:NextPrevButton(up, "up")
+		self:ScrollArrow(up, "up")
 		up:ClearAllPoints()
 		up:Point("BOTTOM", bar, "TOP", 0, SCROLL_BUTTON_GAP)
 	end
 
 	if down then
-		self:NextPrevButton(down, "down")
+		self:ScrollArrow(down, "down")
 		down:ClearAllPoints()
 		down:Point("TOP", bar, "BOTTOM", 0, -SCROLL_BUTTON_GAP)
 	end

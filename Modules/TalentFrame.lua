@@ -471,67 +471,6 @@ local function SkinScrollThumb(thumb, thumbName)
 	end)
 end
 
--- The scroll arrows come back as Blizzard chevrons after the list refreshes,
--- and it isn't the ElvUI arrow being overwritten -- that texture is still in
--- place underneath. The button's native art is a region StripTextures hid, and
--- the scroll frame shows it again whenever it recalculates.
---
--- Matched by file rather than as "any region that isn't one of ours": on this
--- client ElvUI's own panel and border pieces are regions of the button too, so
--- hiding everything unrecognised would take the ElvUI square with it.
---
--- Compared case-insensitively: the client hands paths back from GetTexture in
--- whatever case it stored them, not the case they were set in.
-local ARROW_TEXTURE = E.Media.Textures.ArrowUp:lower()
-local NATIVE_SCROLL_ART = "scrollbar"
-
-local function RestoreArrow(button)
-	for i = 1, button:GetNumRegions() do
-		local region = select(i, button:GetRegions())
-		local texture = region.GetTexture and region:GetTexture()
-
-		if texture and texture:lower():find(NATIVE_SCROLL_ART) and region:IsShown() then
-			region:Hide()
-		end
-	end
-
-	-- The arrow itself is re-pointed as well, in case a refresh reaches the
-	-- state textures and not only the art it re-shows.
-	for _, texture in ipairs(button.CoAArrowTextures) do
-		local current = texture:GetTexture()
-
-		if not current or current:lower() ~= ARROW_TEXTURE then
-			texture:SetTexture(E.Media.Textures.ArrowUp)
-			texture:SetInside(button)
-			texture:SetTexCoord(0, 1, 0, 1)
-			texture:SetRotation(S.ArrowRotation[button.CoAArrowDirection])
-		end
-	end
-end
-
-local function SkinArrow(button, direction)
-	if not button or button.CoASkinned then return end
-	button.CoASkinned = true
-
-	S:HandleNextPrevButton(button, direction)
-
-	button.CoAArrowDirection = direction
-	button.CoAArrowTextures = {
-		button:GetNormalTexture(),
-		button:GetPushedTexture(),
-		button:GetDisabledTexture()
-	}
-
-	-- Still worth closing off: whatever refreshes these would otherwise be free
-	-- to swap in a fresh texture object and orphan the three above.
-	button.SetNormalTexture = E.noop
-	button.SetPushedTexture = E.noop
-	button.SetDisabledTexture = E.noop
-	button.SetHighlightTexture = E.noop
-
-	button:HookScript("OnUpdate", RestoreArrow)
-end
-
 -- The list inside each dropdown popup: a scroll frame with the framed inset
 -- and overlay art around it. The arrows are named off the scroll frame rather
 -- than off the scrollbar, so they're looked up here instead.
@@ -558,13 +497,13 @@ local function SkinMenuScroll(listName)
 	local up = _G[listName.."ScrollFrameScrollUpButton"]
 	if up then
 		up:Point("BOTTOM", scrollBar, "TOP", 0, 1)
-		SkinArrow(up, "up")
+		Skin:ScrollArrow(up, "up")
 	end
 
 	local down = _G[listName.."ScrollFrameScrollDownButton"]
 	if down then
 		down:Point("TOP", scrollBar, "BOTTOM", 0, -1)
-		SkinArrow(down, "down")
+		Skin:ScrollArrow(down, "down")
 	end
 
 	local thumbName = listName.."ScrollFrameScrollBarThumb"
