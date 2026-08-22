@@ -129,8 +129,13 @@ local function UpdatePanelTop(frame)
 end
 
 -- Per-tab contents. Each of the six tabs owns its own copy of these widgets
--- rather than sharing one set, so they're skinned per tab; only the Trials tab
--- is done so far and the rest follow the same shape.
+-- rather than sharing one set, so they're skinned per tab; Trials and Rewards
+-- are done and the rest follow the same shape.
+--
+-- Nothing about one tab's naming carries to the next: the Trials search box is
+-- "...TrialsTabSearch" and its filter a "...FilterDropDown", where the Rewards
+-- pair are "...StoreTabSearchBox" and "...Filter" (probed). Every suffix on a
+-- new tab is worth confirming rather than copying.
 local TRIALS_TAB = FRAME_NAME.."TrialsTab"
 local TRIALS_LIST = TRIALS_TAB.."Challenges"
 local TRIALS_SCROLL = TRIALS_LIST.."ScrollFrame"
@@ -165,6 +170,147 @@ local function SkinTrialsTab()
 	)
 end
 
+local STORE_TAB = FRAME_NAME.."StoreTab"
+local STORE_LAYOUT = STORE_TAB.."StoreButtonLayout"
+
+-- Walked to the first missing index rather than against the twenty-one that
+-- exist today, the same shape as the tab row: this count is a page size, and a
+-- page size is exactly the sort of thing a content patch moves.
+local MAX_SLOTS = 40
+
+-- The bevelled empty-slot plate every bag and auction square on this client
+-- draws, here behind each reward card (probed). The dashes are escaped because
+-- StripArtByFile matches with find, where an unescaped dash is a pattern range.
+local SLOT_ART = "UI%-AuctionFrame%-ItemSlot"
+
+-- The card's rect is drawn tight around its contents: 140x32 with a 32px icon,
+-- so the icon meets the top and bottom edges exactly and the name runs to the
+-- right one. The native plate hid that by bleeding a bevel outwards; a flat
+-- backdrop on the same rect just looks cramped. The grid leaves far more room
+-- than this between cards -- tens of pixels each way -- so the box is grown
+-- rather than the contents moved in, which would fight the store's own layout.
+local CARD_PADDING = 4
+
+-- The headings above the grid are drawn out of the quest log's atlas by tex
+-- coord (probed: three slices plus the button's own NormalTexture, all one
+-- file). Cleared by file rather than stripped so the label survives.
+local HEADING_ART = "questmaplogatlas"
+
+-- A row rather than an item square: 140x32 with a 32px icon flush left, then
+-- the name, then a SimpleHTML cost (probed). The icon is a region of the button
+-- itself rather than sitting in a frame of its own, unlike the talent menu's
+-- rows, so it takes the crop but not a backdrop of its own.
+--
+-- The card takes HandleButton's useCreateBackdrop path rather than its default
+-- SetTemplate one, which is what makes the padding possible at all: a template
+-- is drawn as regions of the button and can only ever match its rect, while a
+-- backdrop is a child frame that can be set outside it. Same reasoning as the
+-- window panel's, one level down. Skin:Button's hover colouring follows either
+-- way -- it resolves button.backdrop before the button itself.
+--
+-- The native hover square needs nothing by name: it's a plain region on the
+-- HIGHLIGHT layer (probed), which is the whole layer Skin:Button's
+-- StripHighlightArt takes.
+--
+-- The crop is re-applied from a hook rather than set once. The grid is a fixed
+-- pool the store refills in place on every search, filter and page change, and
+-- SetTexture resets a texture's coords -- so a one-shot crop would survive
+-- exactly until the first page turn, and the native icon borders would come
+-- back on every card at once. The plate underneath needs no such watch:
+-- StripArtByFile noops its SetTexture, so a refill that re-arts it writes
+-- nothing.
+local function SkinStoreCard(slot)
+	if not slot then return end
+
+	Skin:StripArtByFile(slot, SLOT_ART)
+	Skin:Button(slot, nil, nil, true)
+
+	-- Re-set on every pass rather than once: SetOutside writes fixed points, so
+	-- a UI scale change that moves what a pixel is leaves them stale.
+	if slot.backdrop then
+		slot.backdrop:SetOutside(slot, CARD_PADDING, CARD_PADDING)
+	end
+
+	local name = slot:GetName()
+	local icon = name and _G[name.."Icon"]
+	if not icon then return end
+
+	icon:SetTexCoord(unpack(E.TexCoords))
+
+	-- Guarded separately from Skin:Button's own flag, and for the same reason it
+	-- guards its own: this runs again on every show, and hooksecurefunc stacks
+	-- handlers rather than replacing them.
+	if not slot.CoAIconHooked then
+		slot.CoAIconHooked = true
+
+		hooksecurefunc(icon, "SetTexture", function(texture)
+			texture:SetTexCoord(unpack(E.TexCoords))
+		end)
+	end
+end
+
+-- "Trial Master's Rewards" and its sibling for the build vendor are Buttons by
+-- type, but they aren't buttons: they're the grid's section headings, drawn as
+-- a stylised plaque and doing nothing when clicked. So they get their art taken
+-- off and nothing put back -- no backdrop, which would draw a box around a
+-- caption and read as clickable, and no hover border for the same reason. The
+-- HIGHLIGHT layer goes too, or the caption lights up under the cursor with
+-- nothing behind it.
+--
+-- Walked off the layout rather than named, since the set is one per reward
+-- vendor and grows with content. Same reasoning as the tab row.
+local function SkinStoreHeadings()
+	local layout = _G[STORE_LAYOUT]
+	if not layout then return end
+
+	for i = 1, layout:GetNumChildren() do
+		local heading = select(i, layout:GetChildren())
+
+		Skin:StripArtByFile(heading, HEADING_ART)
+		Skin:StripHighlightArt(heading)
+	end
+end
+
+-- Everything on this tab exists before it has ever been opened (probed: the
+-- same twenty-nine children on a cold reload as after a click), so it goes
+-- through SkinContents with the rest rather than needing a hook on the tab's
+-- own OnShow.
+--
+-- Two things here are deliberately left alone. The Currency button carries the
+-- trophy icon and the "Trial Master's Trophy: 0" counter as its only two
+-- regions and no frame art at all, so there's nothing to strip and a backdrop
+-- would only make a label look clickable. PageText is a FontString region of
+-- the tab itself -- the same trap as the vanity store's counters, and the
+-- reason Skin:Panel grew keepTextures -- so nothing here blind-strips the tab.
+--
+-- No scroll bar is wired: the grid pages rather than scrolls, and there's no
+-- scroll frame anywhere under the tab to hang one off (probed).
+local function SkinStoreTab()
+	Skin:SearchBox(_G[STORE_TAB.."SearchBox"])
+
+	-- Not a dropdown by structure -- no Middle texture, no Button child, no Text
+	-- fontstring, just a plain Button (probed) -- but it is one by art: the same
+	-- nine "UI-Silver-Button" slices and ChatFrameExpandArrow caret the Trials
+	-- filter wears. Skin:Dropdown matches on the art rather than on the naming,
+	-- so it takes this one too; the Middle-plus-Button structural test is only
+	-- ever a shortcut to that question, and here it answers it wrongly.
+	Skin:Dropdown(_G[STORE_TAB.."Filter"])
+
+	-- Stock "UI-SquareButton" arrows (probed), unlike the hand-built bar on the
+	-- Trials list, so these go through the ElvUI handler unaided.
+	Skin:NextPrevButton(_G[STORE_TAB.."PreviousPageButton"], "left")
+	Skin:NextPrevButton(_G[STORE_TAB.."NextPageButton"], "right")
+
+	SkinStoreHeadings()
+
+	for i = 1, MAX_SLOTS do
+		local slot = _G[STORE_TAB.."Slot"..i]
+		if not slot then break end
+
+		SkinStoreCard(slot)
+	end
+end
+
 -- The close button is anchored inside the frame's own top-right corner, which
 -- stopped being the corner the player sees once the panel grew up over the title
 -- band -- it ends up floating a title's height below the top edge. Re-anchored
@@ -195,6 +341,7 @@ local function SkinContents()
 	SkinTabs()
 	AnchorTabRow()
 	SkinTrialsTab()
+	SkinStoreTab()
 end
 
 local function SkinFrame(frame)
