@@ -129,8 +129,8 @@ local function UpdatePanelTop(frame)
 end
 
 -- Per-tab contents. Each of the six tabs owns its own copy of these widgets
--- rather than sharing one set, so they're skinned per tab; Trials and Rewards
--- are done and the rest follow the same shape.
+-- rather than sharing one set, so they're skinned per tab; Trials, Rewards and
+-- Challenges are done and the rest follow the same shape.
 --
 -- Nothing about one tab's naming carries to the next: the Trials search box is
 -- "...TrialsTabSearch" and its filter a "...FilterDropDown", where the Rewards
@@ -311,6 +311,31 @@ local function SkinStoreTab()
 	end
 end
 
+local CHALLENGES_TAB = FRAME_NAME.."ChallengesTab"
+local CHALLENGES_LIST = CHALLENGES_TAB.."Challenges"
+local CHALLENGES_SCROLL = CHALLENGES_LIST.."ScrollFrame"
+
+-- The one tab whose naming does carry over from another: the same three
+-- children as Trials, under the same suffixes, with the same store divider as
+-- its list container's only region, the same nine "UI-Silver-Button" slices and
+-- caret on its filter, and its arrows named off the scroll frame rather than
+-- off the bar (probed). So it takes the Trials treatment call for call -- see
+-- SkinTrialsTab above for why each of the four is the call it is.
+--
+-- The divider constant is shared rather than copied: it is the same 2px rule out
+-- of the same file, not a second one that happens to match today.
+local function SkinChallengesTab()
+	Skin:SearchBox(_G[CHALLENGES_TAB.."Search"])
+	Skin:StripArtByFile(_G[CHALLENGES_LIST], LIST_DIVIDER_ART)
+	Skin:Dropdown(_G[CHALLENGES_TAB.."FilterDropDown"])
+	Skin:ScrollBar(
+		_G[CHALLENGES_SCROLL.."ScrollBar"],
+		_G[CHALLENGES_SCROLL.."ScrollBarThumb"],
+		_G[CHALLENGES_SCROLL.."ScrollUpButton"],
+		_G[CHALLENGES_SCROLL.."ScrollDownButton"]
+	)
+end
+
 -- The close button is anchored inside the frame's own top-right corner, which
 -- stopped being the corner the player sees once the panel grew up over the title
 -- band -- it ends up floating a title's height below the top edge. Re-anchored
@@ -342,6 +367,7 @@ local function SkinContents()
 	AnchorTabRow()
 	SkinTrialsTab()
 	SkinStoreTab()
+	SkinChallengesTab()
 end
 
 local function SkinFrame(frame)
