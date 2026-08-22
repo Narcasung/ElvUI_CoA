@@ -31,7 +31,6 @@ local defaults = {
 			-- row, and this one is a separate window on UIParent with a tab row
 			-- of its own.
 			challenges = true,
-			interfaceOptions = true,
 		},
 		extraActionButtonSize = 52,
 		instanceButtonFont = "PT Sans Narrow",
@@ -303,29 +302,6 @@ local function getOptions()
 							},
 						},
 					},
-					interfaceOptions = {
-						order = 5,
-						type = "group",
-						name = "Interface Options",
-						args = {
-							header = {
-								order = 1,
-								type = "header",
-								name = "Interface Options",
-							},
-							enable = {
-								order = 2,
-								type = "toggle",
-								name = "Enable",
-								desc = "Skin the options the CoA client adds to the stock Interface, Video and Audio windows, which ElvUI's own pass doesn't cover. Requires a UI reload.",
-								get = function() return CoA.db.profile.skins.interfaceOptions end,
-								set = function(_, value)
-									CoA.db.profile.skins.interfaceOptions = value
-									E:StaticPopup_Show("CONFIG_RL")
-								end,
-							},
-						},
-					},
 				},
 			},
 			classResources = {
@@ -536,7 +512,10 @@ function CoA:Initialize()
 		self:InitializeChallengesFrame()
 	end
 
-	if self.InitializeInterfaceOptions and skins.interfaceOptions then
+	-- No switch of its own: this one only fills the gaps ElvUI's own Blizzard
+	-- options pass leaves, so it's on wherever that pass is, and its own gate on
+	-- E.private.skins.blizzard.enable is the same one ElvUI checks.
+	if self.InitializeInterfaceOptions then
 		self:InitializeInterfaceOptions()
 	end
 end
