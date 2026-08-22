@@ -129,8 +129,8 @@ local function UpdatePanelTop(frame)
 end
 
 -- Per-tab contents. Each of the six tabs owns its own copy of these widgets
--- rather than sharing one set, so they're skinned per tab; Trials, Rewards and
--- Challenges are done and the rest follow the same shape.
+-- rather than sharing one set, so they're skinned per tab; Trials, Rewards,
+-- Challenges and Gamemodes are done, and the two left follow the same shape.
 --
 -- Nothing about one tab's naming carries to the next: the Trials search box is
 -- "...TrialsTabSearch" and its filter a "...FilterDropDown", where the Rewards
@@ -336,6 +336,37 @@ local function SkinChallengesTab()
 	)
 end
 
+local GAMEMODES_TAB = FRAME_NAME.."GamemodesTab"
+local GAMEMODES_LIST = GAMEMODES_TAB.."Challenges"
+local GAMEMODES_SCROLL = GAMEMODES_LIST.."ScrollFrame"
+
+-- The Trials/Challenges shape a third time, and again suffix for suffix: the
+-- same search box and list names, the same store divider as its list
+-- container's only region, the same arrows named off the scroll frame rather
+-- than off the bar (probed). See SkinTrialsTab above for why each call is the
+-- call it is.
+--
+-- What differs is the filter: there isn't one, and that's the tab's own shape
+-- rather than something missed here. It has exactly two children, the search
+-- box and the list, and neither of them is a menu (probed), so there is nothing
+-- for a Skin:Dropdown line to be handed.
+--
+-- It owns no regions of its own either (probed), so nothing here needs the
+-- keepTextures care the Rewards tab's PageText took. And everything under it
+-- exists before the tab has ever been opened -- two children and no regions on
+-- a cold reload, unchanged after a click -- so it rides SkinContents like the
+-- other three rather than needing a hook on the tab's own OnShow.
+local function SkinGamemodesTab()
+	Skin:SearchBox(_G[GAMEMODES_TAB.."Search"])
+	Skin:StripArtByFile(_G[GAMEMODES_LIST], LIST_DIVIDER_ART)
+	Skin:ScrollBar(
+		_G[GAMEMODES_SCROLL.."ScrollBar"],
+		_G[GAMEMODES_SCROLL.."ScrollBarThumb"],
+		_G[GAMEMODES_SCROLL.."ScrollUpButton"],
+		_G[GAMEMODES_SCROLL.."ScrollDownButton"]
+	)
+end
+
 -- The close button is anchored inside the frame's own top-right corner, which
 -- stopped being the corner the player sees once the panel grew up over the title
 -- band -- it ends up floating a title's height below the top edge. Re-anchored
@@ -367,6 +398,7 @@ local function SkinContents()
 	AnchorTabRow()
 	SkinTrialsTab()
 	SkinStoreTab()
+	SkinGamemodesTab()
 	SkinChallengesTab()
 end
 
