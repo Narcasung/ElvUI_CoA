@@ -18,3 +18,4 @@ Modules\Skinning.lua
 Modules\TalentFrame.lua
 Modules\VanityFrame.lua
 Modules\WardrobeFrame.lua
+Modules\InterfaceOptions.lua

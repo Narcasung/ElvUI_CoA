@@ -8,6 +8,7 @@ ElvUI plugin that hides and skins the custom CoA (3.3.5) frames not covered by s
 - Class resource frames: hiding
 - Extra action button frame: skin, anchor, size
 - Instance swap frame: skin, anchor, font settings
+- Interface/Video/Audio options: skin the widgets ElvUI's own pass misses
 - Only highlight unitframes if dispellable by your CoA class.
 
 ## Installation
