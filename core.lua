@@ -26,6 +26,11 @@ local defaults = {
 				vanityScale = 1,
 				wardrobeScale = 1,
 			},
+			-- Deliberately not inside the collections group: that switch covers
+			-- the three windows that share the Collections container and its tab
+			-- row, and this one is a separate window on UIParent with a tab row
+			-- of its own.
+			challenges = true,
 			interfaceOptions = true,
 		},
 		extraActionButtonSize = 52,
@@ -275,6 +280,29 @@ local function getOptions()
 							},
 						},
 					},
+					challenges = {
+						order = 4,
+						type = "group",
+						name = "Challenges",
+						args = {
+							header = {
+								order = 1,
+								type = "header",
+								name = "Challenges",
+							},
+							enable = {
+								order = 2,
+								type = "toggle",
+								name = "Enable",
+								desc = "Skin the Challenges window and its tabs. Requires a UI reload.",
+								get = function() return CoA.db.profile.skins.challenges end,
+								set = function(_, value)
+									CoA.db.profile.skins.challenges = value
+									E:StaticPopup_Show("CONFIG_RL")
+								end,
+							},
+						},
+					},
 					interfaceOptions = {
 						order = 5,
 						type = "group",
@@ -499,6 +527,13 @@ function CoA:Initialize()
 		if self.InitializeWardrobeFrame then
 			self:InitializeWardrobeFrame()
 		end
+	end
+
+	-- Its own switch rather than a place in the group above: the Challenges
+	-- window isn't reachable from the talent frame's tabs, so turning it off
+	-- doesn't leave a half-skinned set behind.
+	if self.InitializeChallengesFrame and skins.challenges then
+		self:InitializeChallengesFrame()
 	end
 
 	if self.InitializeInterfaceOptions and skins.interfaceOptions then

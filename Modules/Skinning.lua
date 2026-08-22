@@ -210,6 +210,23 @@ function Skin:Button(button, ...)
 	end
 end
 
+-- S:HandleNextPrevButton routes through S:HandleButton, so it inherits exactly
+-- the lit-border-on-a-dead-button behaviour OnButtonEnter is here to correct,
+-- and scroll arrows spend a good deal of their life disabled at one end of their
+-- list or the other. Same separate guard as Skin:Button, and for the same
+-- reason: these frames re-run their skin passes, and HookScript stacks.
+function Skin:NextPrevButton(button, direction)
+	if not button then return end
+
+	S:HandleNextPrevButton(button, direction)
+
+	if not button.CoAButtonSkinned then
+		button.CoAButtonSkinned = true
+
+		button:HookScript("OnEnter", OnButtonEnter)
+	end
+end
+
 -- Several of these controls draw their art as anonymous regions of one atlas
 -- file rather than through the named Left/Middle/Right fields or the Normal/
 -- Pushed/Disabled set S:HandleButton knows how to clear, so its own clearing
@@ -316,16 +333,170 @@ function Skin:Dropdown(dropdown, menu)
 	self:Panel(menu)
 end
 
+-- The CoA search boxes draw their border and magnifier from the stock
+-- "CommonSearch" file, tinted to the server's own colour, as anonymous regions
+-- -- so S:HandleEditBox can't reach them: it only alpha-0s the named Left/
+-- Middle/Right pieces a stock Blizzard edit box has.
+--
+-- Cleared by file rather than by a blind strip, which is what a first pass did:
+-- an EditBox draws its own caret and its selection highlight as plain solid
+-- textures of its own (probed: four of them, sub-pixel wide and text-high, shown
+-- only while the box has focus), and StripTextures takes those with the border,
+-- leaving a search box you can type in with no cursor in it.
+local SEARCH_BOX_ART = "CommonSearch"
+
+function Skin:SearchBox(box)
+	if not box or box.CoASearchSkinned then return end
+	box.CoASearchSkinned = true
+
+	self:StripArtByFile(box, SEARCH_BOX_ART)
+	S:HandleEditBox(box)
+end
+
+-- Scroll bars ------------------------------------------------------------------
+--
+-- S:HandleScrollBar can't be used on these: the CoA bars are hand-built rather
+-- than the stock Slider widget, so the thumb is a Button with art of its own
+-- (probed) where a stock bar has a thumb *texture*, and HandleScrollBar reaches
+-- for the thumb through GetThumbTexture and then calls SetTexture on what it
+-- finds. It also looks the arrow buttons up as children of the bar, and these
+-- are named off the scroll frame instead. The treatment below is the same one it
+-- applies, only with each piece handed in by the caller.
+--
+-- The art on both pieces is applied lazily, and that is what defeated two
+-- earlier passes at this: at skin time the thumb's textures read back nil, so
+-- matching them by file found nothing to clear, and the scroll code arts them a
+-- moment later when it first measures the list. Clearing, noop'ing the regions'
+-- SetTexture, and alpha'ing them all failed the same way -- not because the art
+-- came back, but because it was never there yet to be taken.
+--
+-- So it's handled from OnUpdate, the same answer the tab art needed and for the
+-- same reason: nothing fires when it happens, and the check is a three-region
+-- alpha compare that only writes when something has actually re-arted the
+-- widget. Blanket rather than matched by file: neither the track nor the thumb
+-- carries anything but its own art -- no label, no counter -- which is the only
+-- thing StripArtByFile's file matching is there to protect.
+local function HideScrollArt(frame)
+	for i = 1, frame:GetNumRegions() do
+		local region = select(i, frame:GetRegions())
+
+		if region:GetObjectType() == "Texture" and region:GetAlpha() ~= 0 then
+			region:SetAlpha(0)
+		end
+	end
+end
+
+-- Colours and states taken from ElvUI's own proportional scroll bars
+-- (S:HandleProportionalScroll), which is what every other scroll bar in this UI
+-- looks like: the value colour at a quarter alpha, three quarters while hovered
+-- or held. Its handlers are locals in ElvUI's file, so the four scripts are
+-- written out here rather than reached for.
+--
+-- The active flag is what keeps a thumb lit while it's being dragged: the
+-- pointer routinely leaves a thin thumb mid-drag, and OnLeave would otherwise
+-- dim it while the list is still moving under it.
+local SCROLL_BUTTON_GAP = 1
+local SCROLL_THUMB_ALPHA = 0.25
+local SCROLL_THUMB_ACTIVE_ALPHA = 0.75
+
+local function SetThumbColor(thumb, alpha)
+	if not thumb.backdrop then return end
+
+	local r, g, b = unpack(E.media.rgbvaluecolor)
+	thumb.backdrop:SetBackdropColor(r, g, b, alpha)
+end
+
+local function ThumbOnEnter(thumb)
+	SetThumbColor(thumb, SCROLL_THUMB_ACTIVE_ALPHA)
+end
+
+local function ThumbOnLeave(thumb)
+	if thumb.CoAThumbActive then return end
+
+	SetThumbColor(thumb, SCROLL_THUMB_ALPHA)
+end
+
+local function ThumbOnMouseDown(thumb)
+	thumb.CoAThumbActive = true
+
+	SetThumbColor(thumb, SCROLL_THUMB_ACTIVE_ALPHA)
+end
+
+local function ThumbOnMouseUp(thumb)
+	thumb.CoAThumbActive = nil
+
+	SetThumbColor(thumb, SCROLL_THUMB_ALPHA)
+end
+
+function Skin:ScrollBar(bar, thumb, up, down)
+	if not bar or bar.CoASkinned then return end
+	bar.CoASkinned = true
+
+	-- The track gets no backdrop of its own, only its art taken off, which is
+	-- what ElvUI's own proportional scroll bars do: against these panels an empty
+	-- channel reads cleaner than a second filled block behind the thumb, and the
+	-- thumb is legible on its own at the value colour.
+	bar:HookScript("OnUpdate", HideScrollArt)
+
+	if thumb then
+		thumb:HookScript("OnUpdate", HideScrollArt)
+
+		-- Filling the thumb rather than inset inside it: the thumb is already
+		-- narrower than the track it runs in, so an inset backdrop reads as a thin
+		-- line rather than as a grip. The track's own gutter is the separation.
+		--
+		-- Levelled off the thumb rather than off the track: the thumb sits a level
+		-- above the track already, so a backdrop built at the track's level would
+		-- land underneath the thumb's own regions.
+		thumb:CreateBackdrop("Transparent")
+		thumb.backdrop:SetFrameLevel(thumb:GetFrameLevel() + 1)
+		thumb.backdrop:SetAllPoints()
+
+		SetThumbColor(thumb, SCROLL_THUMB_ALPHA)
+
+		thumb:HookScript("OnEnter", ThumbOnEnter)
+		thumb:HookScript("OnLeave", ThumbOnLeave)
+		thumb:HookScript("OnMouseDown", ThumbOnMouseDown)
+		thumb:HookScript("OnMouseUp", ThumbOnMouseUp)
+	end
+
+	-- Re-anchored onto the track's ends after skinning, and cleared first rather
+	-- than pointed on top of what's there: HandleNextPrevButton resizes them to
+	-- ElvUI's own 18px, so whatever the native layout anchored them by no longer
+	-- lines up with the track, and a second point left in place would stretch the
+	-- button between the two.
+	if up then
+		self:NextPrevButton(up, "up")
+		up:ClearAllPoints()
+		up:Point("BOTTOM", bar, "TOP", 0, SCROLL_BUTTON_GAP)
+	end
+
+	if down then
+		self:NextPrevButton(down, "down")
+		down:ClearAllPoints()
+		down:Point("TOP", bar, "BOTTOM", 0, -SCROLL_BUTTON_GAP)
+	end
+end
+
 -- Tabs -----------------------------------------------------------------------
 --
--- S:HandleTab can't be used on any of these: it clears the tab body by name,
--- looking for a "Middle" piece, and every CoA tab names theirs "Center", so the
--- body survives and the ElvUI backdrop just lands behind the old art.
+-- S:HandleTab still isn't used on any of these. On the server-authored tabs it
+-- can't be: it clears the tab body by name, looking for a "Middle" piece, and
+-- those name theirs "Center", so the body survives and the ElvUI backdrop just
+-- lands behind the old art. The Challenges window's tabs are stock Blizzard
+-- ones that do use "Middle" (probed), so HandleTab would reach them -- they go
+-- through the same strip anyway, because one code path is what keeps every tab
+-- row in this UI looking alike.
 --
--- One list covers both tab flavours: the talent frame's tabs carry the
--- Disabled variants as well, the wardrobe's category tabs don't, and the
--- lookups for the ones that don't exist simply come back nil.
-local TAB_TEXTURES = {"Left", "Center", "Right", "LeftDisabled", "CenterDisabled", "RightDisabled"}
+-- One list covers all three tab flavours: the talent frame's tabs carry the
+-- Disabled variants as well, the wardrobe's category tabs don't, the Challenges
+-- tabs use Blizzard's Left/Middle/Right plus the Disabled set Blizzard swaps in
+-- to draw the selected tab, and the lookups for the ones that don't exist
+-- simply come back nil.
+local TAB_TEXTURES = {
+	"Left", "Center", "Middle", "Right",
+	"LeftDisabled", "CenterDisabled", "MiddleDisabled", "RightDisabled",
+}
 
 -- Blizzard's own tab code re-sets these textures both when a frame reopens and,
 -- separately, on every tab switch -- and a switch never fires the owning
@@ -348,7 +519,11 @@ function Skin:StripTabArt(tab)
 	if checked then checked:SetTexture(nil) end
 end
 
+-- Exposed: a module that re-anchors a tab row against the frame it belongs to
+-- has to know how far inside its tab the backdrop actually starts, or it lines
+-- the tab up flush and leaves the visible edge floating by this much.
 local TAB_BACKDROP_INSET = 3
+Skin.TabBackdropInset = TAB_BACKDROP_INSET
 
 -- Native tab sizing is a retail leftover -- every other ElvUI tab row in this
 -- client reads bigger -- so labelled tabs are grown, off the font's own current
@@ -372,17 +547,56 @@ local TAB_LABEL_OFFSET = 12
 -- different float -- so a strict ~= compare never held and this grew every tick
 -- without bound. Half a pixel of slack absorbs the rounding while still
 -- catching a genuine Blizzard-driven change, which is always a full tab's worth
--- of height.
-local TAB_HEIGHT_EPSILON = 0.5
+-- of height. The same slack covers the width below.
+local TAB_SIZE_EPSILON = 0.5
 
 local function UpdateTabSize(tab)
 	if not tab.CoAGrowTab then return end
 
 	local height = tab:GetHeight()
 
-	if not tab.CoAGrownHeight or math.abs(height - tab.CoAGrownHeight) > TAB_HEIGHT_EPSILON then
+	if not tab.CoAGrownHeight or math.abs(height - tab.CoAGrownHeight) > TAB_SIZE_EPSILON then
 		tab.CoAGrownHeight = height + TAB_GROWTH
 		tab:SetHeight(tab.CoAGrownHeight)
+	end
+end
+
+-- Native panel tabs interlock: each is anchored back into the one before it by
+-- the width of the art's end cap, so the ornate ends overlap rather than butting
+-- together. Strip the art, put a flat backdrop in its place, and that overlap
+-- has nothing left to hide it -- the row reads as one merged bar, and the tabs'
+-- hit rects overlap along with their backdrops.
+--
+-- The tab is narrowed by exactly what its anchor was pulled back by, rather than
+-- being pushed along to make room: pushing grows the row by the overlap times
+-- the number of tabs, which on the Challenges window overhangs the frame by four
+-- times the slack the row has. Absorbing it instead leaves the row's total
+-- extent exactly where the native layout put it.
+--
+-- Opt-in per row rather than detected from the anchor: a tab anchored onto its
+-- neighbour with a negative offset is the signature of an interlocking row, but
+-- it would also match any row that merely sits tight, and silently resizing the
+-- server-authored rows on that guess isn't worth the convenience.
+local function UnoverlapTab(tab)
+	local point, relativeTo, relativePoint, x, y = tab:GetPoint(1)
+	if not (point and x) or x >= 0 then return end
+
+	tab.CoATabOverlap = -x
+	tab:SetPoint(point, relativeTo, relativePoint, 0, y)
+end
+
+-- Re-checked every tick with the same self-healing shape as the grown height,
+-- and for the same reason: the native tab code re-measures a tab off its own
+-- label, and a width written once would be handed straight back.
+local function UpdateTabWidth(tab)
+	local overlap = tab.CoATabOverlap
+	if not overlap then return end
+
+	local width = tab:GetWidth()
+
+	if not tab.CoAUnoverlappedWidth or math.abs(width - tab.CoAUnoverlappedWidth) > TAB_SIZE_EPSILON then
+		tab.CoAUnoverlappedWidth = width - overlap
+		tab:SetWidth(tab.CoAUnoverlappedWidth)
 	end
 end
 
@@ -404,15 +618,29 @@ end
 -- still comes back, so there's no event to catch it from. Checked from OnUpdate
 -- instead: a cheap GetTexture() compare that only pays for the full strip when
 -- the art has actually reappeared.
+--
+-- Two probes rather than one: a stock Blizzard tab draws its selected state by
+-- hiding the Left/Middle/Right set and showing the Disabled set in its place,
+-- so watching only the inactive half would miss art returning on whichever tab
+-- is currently open. The three pieces of a set are always re-arted together, so
+-- one probe per set is enough.
+local TAB_ART_PROBES = {"Left", "LeftDisabled"}
+
 local function UpdateTabArt(tab)
 	BumpTabLevel(tab)
 	UpdateTabSize(tab)
+	UpdateTabWidth(tab)
 
 	local name = tab:GetName()
-	local tex = name and _G[name.."Left"]
+	if not name then return end
 
-	if tex and tex:GetTexture() then
-		Skin:StripTabArt(tab)
+	for _, suffix in ipairs(TAB_ART_PROBES) do
+		local tex = _G[name..suffix]
+
+		if tex and tex:GetTexture() then
+			Skin:StripTabArt(tab)
+			return
+		end
 	end
 end
 
@@ -443,7 +671,11 @@ end
 -- levelParent is the frame the tab must draw above, and is only needed for tabs
 -- that aren't its children (see BumpTabLevel). Pass nil for tabs parented to
 -- the frame they belong to -- normal parent/child z-order already covers those.
-function Skin:Tab(tab, levelParent)
+--
+-- unoverlap is for rows of interlocking native tabs (see UnoverlapTab). Only the
+-- tabs anchored onto a neighbour take it; the first tab in a row has nothing to
+-- pull back from and is left alone by the offset check.
+function Skin:Tab(tab, levelParent, unoverlap)
 	if not tab then return end
 
 	-- Set on every call rather than only the first: the collection tabs are
@@ -456,6 +688,10 @@ function Skin:Tab(tab, levelParent)
 		tab.CoASkinned = true
 
 		self:StripTabArt(tab)
+
+		if unoverlap then
+			UnoverlapTab(tab)
+		end
 
 		-- Default rather than Transparent: tabs sit below their frame over the
 		-- open world, so a see-through panel reads as washed out instead of as
